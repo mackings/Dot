@@ -2,6 +2,7 @@ const dotenv = require('dotenv');
 const express = require('express');
 const { createPaxfulApi } = require('./src/api');
 const cors = require('cors');
+const http = require("http");
 
 dotenv.config();
 const port = 1000;
