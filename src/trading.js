@@ -24,20 +24,20 @@ class TradesHandler {
             const data = (await this.paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: tradeHash })).data.trade;
 
             const paymentReference = this.generatePaymentReference(data);
-            // await this.saveTrade(tradeHash, {
-            //     isCryptoReleased: false,
-            //     fiatBalance: 0,
-            //     expectedFiatAmount: new Big(data.fiat_amount_requested).toNumber(),
-            //     expectedFiatCurrency: data.fiat_currency_code,
-            //     expectedPaymentReference: this.generatePaymentReference(data)
-            // });
+            await this.saveTrade(tradeHash, {
+                isCryptoReleased: false,
+                fiatBalance: 0,
+                expectedFiatAmount: new Big(data.fiat_amount_requested).toNumber(),
+                expectedFiatCurrency: data.fiat_currency_code,
+                expectedPaymentReference: this.generatePaymentReference(data)
+            });
 
 //This is a fully automated trade. Please follow instructions that will follow.
 
-            await sleep(2000);
+           // await sleep(2000);
             await this.paxfulApi.invoke('/paxful/v1/trade-chat/post', {
                 trade_hash: tradeHash,
-                message: `Wtsup Boss, Drop account`
+                message: `Wtsup Senior, Drop account`
             });
 
             await sleep(2000);
@@ -46,11 +46,11 @@ class TradesHandler {
             });
 
             await sleep(2000);
-            // await this.paxfulApi.invoke('/paxful/v1/trade-chat/post', {
-            //     trade_hash: tradeHash,
-            //     //When making a payment please specify the following payment reference: ${paymentReference}
-            //     message: ``
-            // });
+            await this.paxfulApi.invoke('/paxful/v1/trade-chat/post', {
+                trade_hash: tradeHash,
+                //When making a payment please specify the following payment reference: ${paymentReference}
+                message: `Hello Chief pls  drop acccount`
+            });
         } else {
             throw new Error('You can mark a trade as started only once.');
         }

@@ -94,6 +94,11 @@ const handlers = {
     console.log('Handler trade.started called with payload:', payload); // Logging
     await tradesHandler.markAsStarted(payload.trade_hash);
     const response = await paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: payload.trade_hash });
+    await paxfulApi.invoke('/paxful/v1/trade-chat/post', {
+      trade_hash: tradeHash,
+      message: `Good Day Boss, pls Drop account`
+  });
+
     console.log(response);
     console.log('Trade started Invocation');
     //broadcast({ event: 'trade.started', data: payload });
