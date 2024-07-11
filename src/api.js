@@ -49,7 +49,7 @@ const credentialsStorage = {
 
 // Helper function to get Paxful credentials from environment variables
 const getPaxfulCredentials = () => {
-    
+
     const credentials = [];
     let index = 1;
 
