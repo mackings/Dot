@@ -34,6 +34,14 @@ app.use(function(req, res, next) {
     next();
 });
 
+//Keep Alive 
+
+const keepAlive = () => {
+    http.get(`http://localhost:${port}`);
+    console.log('Keep-alive ping sent.');
+  };
+
+setInterval(keepAlive, 120000);
 
 app.use(express.json());
 app.use('/', require('./src/routes'));
@@ -42,8 +50,6 @@ app.listen(port, async () => {
     if (!username) {
         const response = await paxfulApi.invoke('/paxful/v1/user/me');
         if (response.error) {
-            // If you're getting this error, then once you have fixed it you also need to remove storage/credentials.json
-            // file manually
             throw new Error(response.error_description);
         }
 

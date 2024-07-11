@@ -36,9 +36,9 @@ const db = admin.firestore();
 
 
 const allowedOrigins = [
+  
   'https://b-backend-xe8q.onrender.com', // Your backend URL
-  'http://localhost:3000', // If you're running your Flutter web app locally for development
-  // Add any other origins where your Flutter app might be running
+  'http://localhost:3000', 
 ];
 
 const io = socketIo(server, {
