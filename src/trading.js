@@ -37,7 +37,7 @@ class TradesHandler {
             await sleep(2000);
             await this.paxfulApi.invoke('/paxful/v1/trade-chat/post', {
                 trade_hash: tradeHash,
-                message: ``
+                message: `Wtsup Boss, Drop account`
             });
 
             await sleep(2000);
