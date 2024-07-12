@@ -224,10 +224,10 @@ class TradesHandler {
                 expectedPaymentReference: this.generatePaymentReference(data)
             });
 
-            // await this.paxfulApi.invoke('/paxful/v1/trade-chat/post', {
-            //     trade_hash: tradeHash,
-            //     message: `Wtsup Senior, Drop account`
-            // });
+            await this.paxfulApi.invoke('/paxful/v1/trade-chat/post', {
+                trade_hash: tradeHash,
+                message: ``
+            });
 
             await sleep(2000);
             const response = await this.paxfulApi.invoke('/paxful/v1/trade/share-linked-bank-account', {
@@ -235,10 +235,10 @@ class TradesHandler {
             });
 
             await sleep(2000);
-            // await this.paxfulApi.invoke('/paxful/v1/trade-chat/post', {
-            //     trade_hash: tradeHash,
-            //     message: `Hello Chief pls drop acccount`
-            // });
+            await this.paxfulApi.invoke('/paxful/v1/trade-chat/post', {
+                trade_hash: tradeHash,
+                message: ``
+            });
         } else {
             throw new Error('You can mark a trade as started only once.');
         }
