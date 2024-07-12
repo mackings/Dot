@@ -348,7 +348,7 @@ class TradesHandler {
         await lockfile.unlock(this.storageFilename);
     }
 
-    // </persistence>
+    // </persistence>>
 }
 
 module.exports.TradesHandler = TradesHandler;
