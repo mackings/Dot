@@ -213,43 +213,36 @@ class TradesHandler {
     async markAsStarted(tradeHash) {
         const trade = await this.getTrade(tradeHash);
         if (!trade) {
-            try {
-                const response = await this.paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: tradeHash });
-                console.log('API Response:', response); // Log the entire response for debugging
-    
-                if (!response.data || !response.data.trade) {
-                    throw new Error('Invalid API response: missing data or trade property');
-                }
-                const data = response.data.trade;
-    
-                const paymentReference = this.generatePaymentReference(data);
-                await this.saveTrade(tradeHash, {
-                    isCryptoReleased: false,
-                    fiatBalance: 0,
-                    expectedFiatAmount: new Big(data.fiat_amount_requested).toNumber(),
-                    expectedFiatCurrency: data.fiat_currency_code,
-                    expectedPaymentReference: this.generatePaymentReference(data)
-                });
-    
-                await this.paxfulApi.invoke('/paxful/v1/trade-chat/post', {
-                    trade_hash: tradeHash,
-                    message: ``
-                });
-    
-                await sleep(2000);
-                const shareResponse = await this.paxfulApi.invoke('/paxful/v1/trade/share-linked-bank-account', {
-                    trade_hash: tradeHash
-                });
-    
-                await sleep(2000);
-                await this.paxfulApi.invoke('/paxful/v1/trade-chat/post', {
-                    trade_hash: tradeHash,
-                    message: ``
-                });
-            } catch (error) {
-                console.error('Error in markAsStarted:', error.message);
-                throw error;
-            }
+            const data = (await this.paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: tradeHash })).data.trade;
+
+            const paymentReference = this.generatePaymentReference(data);
+            // await this.saveTrade(tradeHash, {
+            //     isCryptoReleased: false,
+            //     fiatBalance: 0,
+            //     expectedFiatAmount: new Big(data.fiat_amount_requested).toNumber(),
+            //     expectedFiatCurrency: data.fiat_currency_code,
+            //     expectedPaymentReference: this.generatePaymentReference(data)
+            // });
+
+//This is a fully automated trade. Please follow instructions that will follow.
+
+            await sleep(2000);
+            await this.paxfulApi.invoke('/paxful/v1/trade-chat/post', {
+                trade_hash: tradeHash,
+                message: ``
+            });
+
+            await sleep(2000);
+            const response = await this.paxfulApi.invoke('/paxful/v1/trade/share-linked-bank-account', {
+                trade_hash: tradeHash
+            });
+
+            await sleep(2000);
+            // await this.paxfulApi.invoke('/paxful/v1/trade-chat/post', {
+            //     trade_hash: tradeHash,
+            //     //When making a payment please specify the following payment reference: ${paymentReference}
+            //     message: ``
+            // });
         } else {
             throw new Error('You can mark a trade as started only once.');
         }
