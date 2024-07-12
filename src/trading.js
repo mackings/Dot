@@ -197,57 +197,67 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const lockfile = require('proper-lockfile');
 
 class TradesHandler {
-
-    constructor(paxfulApi) {
+    constructor(paxfulApis) {
         this.storageFilename = __dirname + '/../storage/trades.json';
-        this.paxfulApi = paxfulApi;
+        this.paxfulApis = paxfulApis; // Array of Paxful API instances
     }
 
-    // private
     generatePaymentReference(trade) {
-        // Feel free to re-implement this method to return any unique string that this application
-        // can use to match incoming bank payment with a trade
         return trade.trade_hash;
     }
 
     async markAsStarted(tradeHash) {
-        const trade = await this.getTrade(tradeHash);
-        if (!trade) {
-            const data = (await this.paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: tradeHash })).data.trade;
+        for (const paxfulApi of this.paxfulApis) {
+            try {
+                const trade = await this.getTrade(tradeHash);
+                if (!trade) {
+                    const response = await paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: tradeHash });
+                    console.log('API Response:', response);
 
-            const paymentReference = this.generatePaymentReference(data);
-            // await this.saveTrade(tradeHash, {
-            //     isCryptoReleased: false,
-            //     fiatBalance: 0,
-            //     expectedFiatAmount: new Big(data.fiat_amount_requested).toNumber(),
-            //     expectedFiatCurrency: data.fiat_currency_code,
-            //     expectedPaymentReference: this.generatePaymentReference(data)
-            // });
+                    if (response.status === 'error') {
+                        throw new Error(`API Error: ${response.error.message} (Code: ${response.error.code})`);
+                    }
 
-//This is a fully automated trade. Please follow instructions that will follow.
+                    if (!response.data || !response.data.trade) {
+                        throw new Error('Invalid API response: missing data or trade property');
+                    }
+                    const data = response.data.trade;
 
-            await sleep(2000);
-            await this.paxfulApi.invoke('/paxful/v1/trade-chat/post', {
-                trade_hash: tradeHash,
-                message: ``
-            });
+                    const paymentReference = this.generatePaymentReference(data);
 
-            await sleep(2000);
-            const response = await this.paxfulApi.invoke('/paxful/v1/trade/share-linked-bank-account', {
-                trade_hash: tradeHash
-            });
+                    await this.saveTrade(tradeHash, {
+                        isCryptoReleased: false,
+                        fiatBalance: 0,
+                        expectedFiatAmount: new Big(data.fiat_amount_requested).toNumber(),
+                        expectedFiatCurrency: data.fiat_currency_code,
+                        expectedPaymentReference: this.generatePaymentReference(data)
+                    });
 
-            await sleep(2000);
-            // await this.paxfulApi.invoke('/paxful/v1/trade-chat/post', {
-            //     trade_hash: tradeHash,
-            //     //When making a payment please specify the following payment reference: ${paymentReference}
-            //     message: ``
-            // });
-        } else {
-            throw new Error('You can mark a trade as started only once.');
+                    await paxfulApi.invoke('/paxful/v1/trade-chat/post', {
+                        trade_hash: tradeHash,
+                        message: ``
+                    });
+
+                    await sleep(2000);
+                    const shareResponse = await paxfulApi.invoke('/paxful/v1/trade/share-linked-bank-account', {
+                        trade_hash: tradeHash
+                    });
+
+                    await sleep(2000);
+                    await paxfulApi.invoke('/paxful/v1/trade-chat/post', {
+                        trade_hash: tradeHash,
+                        message: ``
+                    });
+
+                    return; // Exit the loop if the trade was successfully started
+                }
+            } catch (error) {
+                console.error('Error in markAsStarted:', error.message);
+                // Continue with the next API instance if this one fails
+            }
         }
+        throw new Error('You can mark a trade as started only once.');
     }
-    
 
     async isCryptoReleased(tradeHash) {
         return (await this.getTradeOrDie(tradeHash)).isCryptoReleased;
@@ -263,14 +273,12 @@ class TradesHandler {
         };
     }
 
-
     async updateBalance(tradeHash, newBalance) {
         await this.updateTrade(tradeHash, async (trade) => {
             trade.fiatBalance = newBalance.toNumber();
             return trade;
         });
     }
-
 
     async isFiatPaymentReceivedInFullAmount(tradeHash) {
         const trade = await this.getFiatBalanceAndCurrency(tradeHash);
@@ -290,12 +298,6 @@ class TradesHandler {
         return foundTradeHash;
     }
 
-    // Here we're relying on storing data in a JSON file. For a production use please re-implement to use
-    // database
-    // <persistence>:
-
-    // private
-    
     async getTrades() {
         if (!fs.existsSync(this.storageFilename)) {
             await fs.promises.writeFile(this.storageFilename, JSON.stringify({}));
@@ -303,12 +305,10 @@ class TradesHandler {
         return JSON.parse(await fs.promises.readFile(this.storageFilename, 'utf8'));
     }
 
-    // private
     async getTrade(tradeHash) {
         return (await this.getTrades())[tradeHash];
     }
 
-    // private
     async getTradeOrDie(tradeHash) {
         const trade = await this.getTrade(tradeHash);
         if (!trade) {
@@ -317,10 +317,7 @@ class TradesHandler {
         return trade;
     }
 
-    // private
     async updateTrade(tradeHash, operation) {
-        const lockfile = require('proper-lockfile'); // Ensure you install proper-lockfile
-
         try {
             await lockfile.lock(this.storageFilename);
             const trades = await this.getTrades();
@@ -342,18 +339,13 @@ class TradesHandler {
         }
     }
 
-    // private
     async saveTrade(id, trade) {
-        const lockfile = require('proper-lockfile'); // Ensure you install proper-lockfile
-
         await lockfile.lock(this.storageFilename);
         const trades = await this.getTrades();
         trades[id] = trade;
         await fs.promises.writeFile(this.storageFilename, JSON.stringify(trades, null, 2));
         await lockfile.unlock(this.storageFilename);
     }
-
-    // </persistence>>
 }
 
 module.exports.TradesHandler = TradesHandler;
