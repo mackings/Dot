@@ -67,19 +67,26 @@ const handlers = {
 
 
   'trade.started': async (payload, tradesHandler, paxfulApi) => {
-   console.log('Handler trade.started called with payload:', payload);
+
+    console.log('Handler trade.started called with payload:', payload); // Logging
     await tradesHandler.markAsStarted(payload.trade_hash);
     const response = await paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: payload.trade_hash });
+    console.log(` Trade Invocation.... ${response}`);
+    await saveTradeToFirestore(payload, 'trades');
+    const message = "Hello.."
+  
+    try {
+        await paxfulApi.invoke('/paxful/v1/trade-chat/post', {
+            trade_hash: payload.tradeHash,
+            message
+        });
 
-    await paxfulApi.invoke('/paxful/v1/trade-chat/post', {
-      trade_hash: tradeHash,
-      message: ``
-  });
-
-    console.log(response);
-    console.log('Trade started Invocation');
-   // await saveTradeToFirestore(payload, 'trades');
-
+        console.log("Message Sent");
+       
+    } catch (error) {
+        console.error('Error sending chat message:', error);
+       
+    }
   },
 
   
