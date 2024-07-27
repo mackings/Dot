@@ -95,6 +95,7 @@ if (!Array.isArray(paxfulApis) || paxfulApis.length === 0) {
 
 // Now you have an array of Paxful API instances
 // You can use them as needed, for example:
+
 paxfulApis.forEach((api, index) => {
     if (api.someApiMethod) {
         api.someApiMethod().then(response => {

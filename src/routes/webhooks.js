@@ -153,6 +153,7 @@ const handlers = {
         return;
       }
     }
+    
    // broadcast({ event: 'trade.chat_message_received', data: payload });
    // await saveChatMessageToFirestore(payload, messages);
 
