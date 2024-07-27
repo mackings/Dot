@@ -12,7 +12,6 @@ const dotenv = require('dotenv').config();
 const admin = require("firebase-admin");
 const privateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
 
-
 const serviceAccount = {
   type: "service_account",
   project_id: process.env.FIREBASE_PROJECT_ID,
@@ -26,14 +25,11 @@ const serviceAccount = {
   client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL,
 };
 
-
-
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
 const db = admin.firestore();
-
 
 const saveTradeToFirestore = async (payload, collection) => {
   try {
@@ -44,7 +40,7 @@ const saveTradeToFirestore = async (payload, collection) => {
     });
     console.log(`Trade ${payload.trade_hash} saved to Firestore.`);
   } catch (error) {
-    console.error('Error saving  the trade to Firestore:', error);
+    console.error('Error saving the trade to Firestore:', error);
   }
 };
 
@@ -62,10 +58,7 @@ const saveChatMessageToFirestore = async (payload, messages) => {
   }
 };
 
-
 const handlers = {
-
-
   'trade.started': async (payload, tradesHandler, paxfulApi) => {
     try {
       console.log('Handler trade.started called with payload:', payload); // Logging
@@ -90,8 +83,6 @@ const handlers = {
       console.error('Error in trade.started handler:', error); // Logging
     }
   },
-
-  
 
   'trade.chat_message_received': async (payload, _, paxfulApi, ctx) => {
     console.log('Handler trade.chat_message_received called with payload:', payload); // Logging
@@ -138,8 +129,6 @@ const handlers = {
 
   },
 
-
-
   'trade.paid': async (payload, tradesHandler) => {
     console.log('Handler trade.paid called with payload:', payload); // Logging
     const tradeHash = payload.trade_hash;
@@ -150,8 +139,7 @@ const handlers = {
   },
 };
 
-//Send Chats
-
+// Send Chats
 router.post('/paxful/send-message', async (req, res) => {
   const message = req.body.message;
   const hash = req.body.hash;
@@ -223,6 +211,5 @@ router.post('/paxful/webhook', async (req, res) => {
 
   res.status(200).json({ status: 'success' });
 });
-
 
 module.exports = router;
