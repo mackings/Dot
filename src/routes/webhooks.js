@@ -61,17 +61,22 @@ const saveChatMessageToFirestore = async (payload, messages) => {
 const handlers = {
   'trade.started': async (payload, tradesHandler, paxfulApi) => {
     try {
-      console.log('Handler trade.started called with payload:', payload); // Logging
-      
+      console.log('Handler trade.started called with payload:', JSON.stringify(payload, null, 2)); // Detailed logging
+
+      // Ensure payload contains the expected fields
+      if (!payload.trade_hash) {
+        throw new Error('Payload does not contain trade_hash');
+      }
+
       await tradesHandler.markAsStarted(payload.trade_hash);
       console.log(`Trade ${payload.trade_hash} marked as started.`); // Logging
 
       const response = await paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: payload.trade_hash });
-      console.log(`Trade get response for ${payload.trade_hash}:`, response); // Logging
-      
+      console.log(`Trade get response for ${payload.trade_hash}:`, JSON.stringify(response, null, 2)); // Detailed logging
+
       await saveTradeToFirestore(payload, 'trades');
       console.log(`Trade ${payload.trade_hash} saved to Firestore.`); // Logging
-      
+
       const message = "Hello..";
       await paxfulApi.invoke('/paxful/v1/trade-chat/post', {
         trade_hash: payload.trade_hash,
@@ -85,7 +90,7 @@ const handlers = {
   },
 
   'trade.chat_message_received': async (payload, _, paxfulApi, ctx) => {
-    console.log('Handler trade.chat_message_received called with payload:', payload); // Logging
+    console.log('Handler trade.chat_message_received called with payload:', JSON.stringify(payload, null, 2)); // Detailed logging
     const offerOwnerUsername = ctx.config.username;
     const maxRetries = 5;
     let retries = 0;
@@ -117,7 +122,7 @@ const handlers = {
     // Process bank account instruction messages differently
     if (lastNonSystemMessage.type === 'bank-account-instruction') {
       const bankAccountDetails = lastNonSystemMessage.text.bank_account;
-      console.log('Received bank account details:', bankAccountDetails);
+      console.log('Received bank account details:', JSON.stringify(bankAccountDetails, null, 2)); // Detailed logging
     } else {
       const isLastMessageByBuyer = lastNonSystemMessage.author !== offerOwnerUsername;
       if (!isLastMessageByBuyer) {
@@ -125,12 +130,12 @@ const handlers = {
       }
     }
     
-   // await saveChatMessageToFirestore(payload, messages);
+    // await saveChatMessageToFirestore(payload, messages);
 
   },
 
   'trade.paid': async (payload, tradesHandler) => {
-    console.log('Handler trade.paid called with payload:', payload); // Logging
+    console.log('Handler trade.paid called with payload:', JSON.stringify(payload, null, 2)); // Detailed logging
     const tradeHash = payload.trade_hash;
     if (await tradesHandler.isFiatPaymentReceivedInFullAmount(tradeHash)) {
       await tradesHandler.markCompleted(tradeHash);
@@ -138,6 +143,7 @@ const handlers = {
     }
   },
 };
+
 
 // Send Chats
 router.post('/paxful/send-message', async (req, res) => {
