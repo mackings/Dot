@@ -35,30 +35,6 @@ admin.initializeApp({
 const db = admin.firestore();
 
 
-const allowedOrigins = [
-  
-  'https://b-backend-xe8q.onrender.com', // Your backend URL
-  'http://localhost:3000', 
-];
-
-const io = socketIo(server, {
-  cors: {
-    origin: allowedOrigins,
-    methods: ["GET", "POST"],
-    credentials: true
-  }
-});
-
-
-const tradesChatMessages = {}; // In-memory store for trade chat messages
-const tradeHashQueue = []; // Queue to store trade hashes in order of receipt
-
-// Broadcast a message to all connected WebSocket clients
-// const broadcast = (message) => {
-//   io.sockets.emit('message', message);
-//   console.log('WebSocket sent data:', JSON.stringify(message)); // Log the data being sent
-// };
-
 const saveTradeToFirestore = async (payload, collection) => {
   try {
     const docRef = db.collection(collection).doc(payload.trade_hash);
@@ -91,7 +67,7 @@ const handlers = {
 
 
   'trade.started': async (payload, tradesHandler, paxfulApi) => {
-   // console.log('Handler trade.started called with payload:', payload); // Logging
+   console.log('Handler trade.started called with payload:', payload);
     await tradesHandler.markAsStarted(payload.trade_hash);
     const response = await paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: payload.trade_hash });
 
@@ -102,7 +78,6 @@ const handlers = {
 
     console.log(response);
     console.log('Trade started Invocation');
-    //broadcast({ event: 'trade.started', data: payload });
    // await saveTradeToFirestore(payload, 'trades');
 
   },
@@ -136,10 +111,6 @@ const handlers = {
       return;
     }
 
-    // Store messages in the in-memory store
-    tradesChatMessages[payload.trade_hash] = messages;
-    tradeHashQueue.push(payload.trade_hash); // Add trade hash to the queue
-
     const nonSystemMessages = messages.filter((m) => m.type === 'msg' || m.type === 'bank-account-instruction').reverse();
     const lastNonSystemMessage = nonSystemMessages[0];
 
@@ -154,7 +125,6 @@ const handlers = {
       }
     }
     
-   // broadcast({ event: 'trade.chat_message_received', data: payload });
    // await saveChatMessageToFirestore(payload, messages);
 
   },
@@ -166,7 +136,6 @@ const handlers = {
     const tradeHash = payload.trade_hash;
     if (await tradesHandler.isFiatPaymentReceivedInFullAmount(tradeHash)) {
       await tradesHandler.markCompleted(tradeHash);
-     // broadcast({ event: 'trade.paid', data: payload });
      // await saveTradeToFirestore(payload, 'trades');
     }
   },
@@ -246,16 +215,5 @@ router.post('/paxful/webhook', async (req, res) => {
   res.status(200).json({ status: 'success' });
 });
 
-io.on('connection', (socket) => {
-  console.log('New WebSocket connection established'); // Logging
-
-  socket.on('disconnect', () => {
-    console.log('WebSocket disconnected'); // Logging
-  });
-});
-
-server.listen(process.env.SPORT, () => {
-  console.log('Socket port 3000');
-});
 
 module.exports = router;
