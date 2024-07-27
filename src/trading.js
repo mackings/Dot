@@ -1,4 +1,3 @@
-
 const fs = require('fs');
 const Big = require('big.js');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -41,9 +40,10 @@ class TradesHandler {
                         expectedPaymentReference: this.generatePaymentReference(data)
                     });
 
+                    // Add an initial message to the chat
                     await paxfulApi.invoke('/paxful/v1/trade-chat/post', {
                         trade_hash: tradeHash,
-                        message: ``
+                        message: `Trade started. Payment reference: ${paymentReference}`
                     });
 
                     await sleep(2000);
@@ -52,9 +52,10 @@ class TradesHandler {
                     });
 
                     await sleep(2000);
+                    // Update the chat message
                     await paxfulApi.invoke('/paxful/v1/trade-chat/post', {
                         trade_hash: tradeHash,
-                        message: ``
+                        message: `Bank account details shared for trade.`
                     });
 
                     return; // Exit the loop if the trade was successfully started
