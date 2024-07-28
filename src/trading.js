@@ -44,7 +44,7 @@ class TradesHandler {
                 message:" When making a payment please specify the following payment reference: ${paymentReference}"
             });
         } else {
-            throw new Error('You can mark a trade as started only once.');
+            throw new Error('You can mark a trade as started only once..');
         }
     }
 
