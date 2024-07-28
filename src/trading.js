@@ -14,58 +14,38 @@ class TradesHandler {
     }
 
     async markAsStarted(tradeHash) {
-        for (const paxfulApi of this.paxfulApis) {
-            try {
-                const trade = await this.getTrade(tradeHash);
-                if (!trade) {
-                    const response = await paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: tradeHash });
-                    console.log('API Response:', response);
+        const trade = await this.getTrade(tradeHash);
+        if (!trade) {
+            const data = (await this.paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: tradeHash })).data.trade;
 
-                    if (response.status === 'error') {
-                        throw new Error(`API Error: ${response.error.message} (Code: ${response.error.code})`);
-                    }
+            const paymentReference = this.generatePaymentReference(data);
+            await this.saveTrade(tradeHash, {
+                isCryptoReleased: false,
+                fiatBalance: 0,
+                expectedFiatAmount: new Big(data.fiat_amount_requested).toNumber(),
+                expectedFiatCurrency: data.fiat_currency_code,
+                expectedPaymentReference: this.generatePaymentReference(data)
+            });
 
-                    if (!response.data || !response.data.trade) {
-                        throw new Error('Invalid API response: missing data or trade property');
-                    }
-                    const data = response.data.trade;
+            await sleep(2000);
+            await this.paxfulApi.invoke('/paxful/v1/trade-chat/post', {
+                trade_hash: tradeHash,
+                message:" This is a fully automated trade. Please follow instructions that will follow."
+            });
 
-                    const paymentReference = this.generatePaymentReference(data);
+            await sleep(2000);
+            const response = await this.paxfulApi.invoke('/paxful/v1/trade/share-linked-bank-account', {
+                trade_hash: tradeHash
+            });
 
-                    await this.saveTrade(tradeHash, {
-                        isCryptoReleased: false,
-                        fiatBalance: 0,
-                        expectedFiatAmount: new Big(data.fiat_amount_requested).toNumber(),
-                        expectedFiatCurrency: data.fiat_currency_code,
-                        expectedPaymentReference: this.generatePaymentReference(data)
-                    });
-
-                    // Add an initial message to the chat
-                    await paxfulApi.invoke('/paxful/v1/trade-chat/post', {
-                        trade_hash: tradeHash,
-                        message: `Trade started. Payment reference: ${paymentReference}`
-                    });
-
-                    await sleep(2000);
-                    const shareResponse = await paxfulApi.invoke('/paxful/v1/trade/share-linked-bank-account', {
-                        trade_hash: tradeHash
-                    });
-
-                    await sleep(2000);
-                    // Update the chat message
-                    await paxfulApi.invoke('/paxful/v1/trade-chat/post', {
-                        trade_hash: tradeHash,
-                        message: `Bank account details shared for trade.`
-                    });
-
-                    return; // Exit the loop if the trade was successfully started
-                }
-            } catch (error) {
-                console.error('Error in markAsStarted:', error.message);
-                // Continue with the next API instance if this one fails
-            }
+            await sleep(2000);
+            await this.paxfulApi.invoke('/paxful/v1/trade-chat/post', {
+                trade_hash: tradeHash,
+                message:" When making a payment please specify the following payment reference: ${paymentReference}"
+            });
+        } else {
+            throw new Error('You can mark a trade as started only once.');
         }
-        throw new Error('You can mark a trade as started only once.');
     }
 
     async isCryptoReleased(tradeHash) {

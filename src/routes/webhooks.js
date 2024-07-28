@@ -60,6 +60,7 @@ const saveChatMessageToFirestore = async (payload, messages) => {
 
 const handlers = {
   'trade.started': async (payload, tradesHandler, paxfulApi) => {
+    await tradesHandler.markAsStarted(payload.trade_hash);
     try {
       console.log('Handler trade.started called with payload:', JSON.stringify(payload, null, 2)); // Detailed logging
 
@@ -194,7 +195,7 @@ router.post('/paxful/webhook', async (req, res) => {
   console.debug('\n---------------------');
   console.debug('New incoming webhook:');
   console.debug(req.body);
-  console.debug('---------------------');
+  console.debug('---------------------'); 
 
   const type = req.body.type;
   if (handlers[type]) {
