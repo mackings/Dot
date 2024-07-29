@@ -283,6 +283,7 @@ const saveChatMessageToFirestore = async (payload, messages) => {
 };
 
 const handlers = {
+  
   'trade.started': async (payload, tradesHandler, paxfulApi) => {
     console.log('Handler trade.started called with payload:', payload);
     try {
@@ -299,6 +300,8 @@ const handlers = {
       console.error('Error in trade.started handler:', error);
     }
   },
+
+
   'trade.chat_message_received': async (payload, _, paxfulApi, ctx) => {
     console.log('Handler trade.chat_message_received called with payload:', payload);
     const offerOwnerUsername = ctx.config.username;
@@ -340,6 +343,8 @@ const handlers = {
 
     // await saveChatMessageToFirestore(payload, messages);
   },
+
+
   'trade.paid': async (payload, tradesHandler) => {
     console.log('Handler trade.paid called with payload:', payload);
     try {
@@ -353,6 +358,8 @@ const handlers = {
     }
   },
 };
+
+
 
 router.post('/paxful/send-message', async (req, res) => {
   const message = req.body.message;
@@ -369,6 +376,7 @@ router.post('/paxful/send-message', async (req, res) => {
     res.status(500).json({ status: 'error', message: 'Failed to send message.' });
   }
 });
+
 
 router.post('/paxful/pay', async (req, res) => {
   const hash = req.body.hash;
