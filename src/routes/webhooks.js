@@ -278,7 +278,7 @@ const saveChatMessageToFirestore = async (payload, messages) => {
     }, { merge: true });
     console.log(`Chat messages for trade ${payload.trade_hash} saved to Firestore.`);
   } catch (error) {
-    console.error('Error saving chat messages to Firestore:', error);
+    console.error('Error saving chat messages to Firestores:', error);
   }
 };
 
@@ -291,14 +291,15 @@ const handlers = {
       const response = await paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: payload.trade_hash });
       console.log(`Trade Invocation: ${response}`);
       const message = "Hello..";
-      await paxfulApi.invoke('/paxful/v1/trade-chat/post', {
-        trade_hash: payload.trade_hash,
-        message,
-      });
-      console.log("Message Sent");
+
+    //   await paxfulApi.invoke('/paxful/v1/trade-chat/post', {
+    //     trade_hash: payload.trade_hash,
+    //     message,
+    //   });
+    //   console.log("Message Sent");
     } catch (error) {
       console.error('Error in trade.started handler:', error);
-    }
+   }
   },
 
 
