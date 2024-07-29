@@ -287,7 +287,7 @@ const handlers = {
   'trade.started': async (payload, tradesHandler, paxfulApi) => {
     console.log('Handler trade.started called with payload:', payload);
     try {
-      await tradesHandler.markAsStarted(payload.trade_hash);
+     // await tradesHandler.markAsStarted(payload.trade_hash);
       const response = await paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: payload.trade_hash });
       console.log(`Trade Invocation: ${response}`);
       const message = "Hello..";
