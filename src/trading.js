@@ -16,7 +16,7 @@ class TradesHandler {
     async markAsStarted(tradeHash) {
         const trade = await this.getTrade(tradeHash);
         if (!trade) {
-            const data = (await this.paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: tradeHash })).data.trade;
+            const data = (await this.paxfulApis.invoke('/paxful/v1/trade/get', { trade_hash: tradeHash })).data.trade;
 
             const paymentReference = this.generatePaymentReference(data);
             await this.saveTrade(tradeHash, {
@@ -28,9 +28,10 @@ class TradesHandler {
             });
 
             await sleep(2000);
-            await this.paxfulApi.invoke('/paxful/v1/trade-chat/post', {
+            //This is a fully automated trade. Please follow instructions that will follow.
+            await this.paxfulApis.invoke('/paxful/v1/trade-chat/post', {
                 trade_hash: tradeHash,
-                message:" This is a fully automated trade. Please follow instructions that will follow."
+                message:"."
             });
 
             await sleep(2000);
@@ -39,9 +40,10 @@ class TradesHandler {
             });
 
             await sleep(2000);
-            await this.paxfulApi.invoke('/paxful/v1/trade-chat/post', {
+            //When making a payment please specify the following payment reference: ${paymentReference}
+            await this.paxfulApis.invoke('/paxful/v1/trade-chat/post', {
                 trade_hash: tradeHash,
-                message:" When making a payment please specify the following payment reference: ${paymentReference}"
+                message:".."
             });
         } else {
             throw new Error('You can mark a trade as started only once..');
