@@ -3,6 +3,8 @@ const Big = require('big.js');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const lockfile = require('proper-lockfile');
 
+
+
 class TradesHandler {
     constructor(paxfulApis) {
         this.storageFilename = __dirname + '/../storage/trades.json';
@@ -16,7 +18,12 @@ class TradesHandler {
     async markAsStarted(tradeHash) {
         const trade = await this.getTrade(tradeHash);
         if (!trade) {
-            const data = (await this.paxfulApis.invoke('/paxful/v1/trade/get', { trade_hash: tradeHash })).data.trade;
+            const tradeResponse = await this.paxfulApis.invoke('/paxful/v1/trade/get', { trade_hash: tradeHash });
+            console.log('Trade get response:', tradeResponse);
+            if (!tradeResponse.data || !tradeResponse.data.trade) {
+                throw new Error(`Trade data not found for trade hash - '${tradeHash}'`);
+            }
+            const data = tradeResponse.data.trade;
 
             const paymentReference = this.generatePaymentReference(data);
             await this.saveTrade(tradeHash, {
@@ -28,25 +35,25 @@ class TradesHandler {
             });
 
             await sleep(2000);
-            //This is a fully automated trade. Please follow instructions that will follow.
+            // This is a fully automated trade. Please follow instructions that will follow.
             await this.paxfulApis.invoke('/paxful/v1/trade-chat/post', {
                 trade_hash: tradeHash,
-                message:"."
+                message: "."
             });
 
             await sleep(2000);
-            const response = await this.paxfulApi.invoke('/paxful/v1/trade/share-linked-bank-account', {
+            const shareResponse = await this.paxfulApis.invoke('/paxful/v1/trade/share-linked-bank-account', {
                 trade_hash: tradeHash
             });
 
             await sleep(2000);
-            //When making a payment please specify the following payment reference: ${paymentReference}
+            // When making a payment please specify the following payment reference: ${paymentReference}
             await this.paxfulApis.invoke('/paxful/v1/trade-chat/post', {
                 trade_hash: tradeHash,
-                message:".."
+                message: ".."
             });
         } else {
-            throw new Error('You can mark a trade as started only once..');
+            throw new Error('You can mark a trade as started only once.');
         }
     }
 
@@ -140,3 +147,5 @@ class TradesHandler {
 }
 
 module.exports.TradesHandler = TradesHandler;
+
+
