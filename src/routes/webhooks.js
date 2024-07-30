@@ -62,10 +62,9 @@ const saveChatMessageToFirestore = async (payload, messages) => {
 const handlers = {
   
   'trade.started': async (payload, tradesHandler, paxfulApi) => {
-    console.log('Handler trade.started called with payload:', payload);
+    //console.log('Handler trade.started called with payload:', payload);
 
     try {
-      //await tradesHandler.markAsStarted(payload.trade_hash);
       const response = await paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: payload.trade_hash });
       console.log(`Trade Invocation: ${response}`);
       await saveTradeToFirestore(payload,'trades');
@@ -83,7 +82,7 @@ const handlers = {
 
 
   'trade.chat_message_received': async (payload, _, paxfulApi, ctx) => {
-    console.log('Handler trade.chat_message_received called with payload:', payload);
+   // console.log('Handler trade.chat_message_received called with payload:', payload);
     const offerOwnerUsername = ctx.config.username;
     const maxRetries = 5;
     let retries = 0;
@@ -126,7 +125,7 @@ const handlers = {
 
 
   'trade.paid': async (payload, tradesHandler) => {
-    console.log('Handler trade.paid called with payload:', payload);
+    //console.log('Handler trade.paid called with payload:', payload);
     try {
       const tradeHash = payload.trade_hash;
       if (await tradesHandler.isFiatPaymentReceivedInFullAmount(tradeHash)) {
@@ -196,10 +195,10 @@ router.post('/paxful/webhook', async (req, res) => {
     return;
   }
 
-  console.debug('\n---------------------');
-  console.debug('New incoming webhook:');
+  //console.debug('\n---------------------');
+  console.debug('New incoming webhook >>>>');
   console.debug(req.body);
-  console.debug('---------------------');
+  //console.debug('---------------------');
 
   const type = req.body.type;
 
@@ -207,7 +206,7 @@ router.post('/paxful/webhook', async (req, res) => {
     try {
       const paxfulApi = req.context.services.paxfulApi;
       const tradesHandler = new TradesHandler(paxfulApi);
-      console.log(`Handler for ${type} found, invoking...`);
+      //console.log(`Handler for ${type} found, invoking...`);
       await handlers[type](req.body.payload, tradesHandler, paxfulApi, req.context);
       res.status(200).json({ status: 'success' });
     } catch (e) {
