@@ -45,17 +45,29 @@ const saveTradeToFirestore = async (payload, collection) => {
   }
 };
 
+
+
 const saveChatMessageToFirestore = async (payload, messages) => {
   try {
     const docRef = db.collection('tradeMessages').doc(payload.trade_hash);
-    await docRef.set({
-      trade_hash: payload.trade_hash,
-      messages: admin.firestore.FieldValue.arrayUnion(...messages),
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
+    await db.runTransaction(async (transaction) => {
+      const doc = await transaction.get(docRef);
+      if (!doc.exists) {
+        transaction.set(docRef, {
+          trade_hash: payload.trade_hash,
+          messages: messages,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } else {
+        transaction.update(docRef, {
+          messages: admin.firestore.FieldValue.arrayUnion(...messages),
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    });
     console.log(`Chat messages for trade ${payload.trade_hash} saved to Firestore.`);
   } catch (error) {
-    console.error('Error saving chat messages to Firestores:', error);
+    console.error('Error saving chat messages to Firestore:', error);
   }
 };
 
@@ -81,47 +93,46 @@ const handlers = {
   },
 
 
-  'trade.chat_message_received': async (payload, _, paxfulApi, ctx) => {
-   // console.log('Handler trade.chat_message_received called with payload:', payload);
-    const offerOwnerUsername = ctx.config.username;
-    const maxRetries = 5;
-    let retries = 0;
-    let messages;
+'trade.chat_message_received': async (payload, _, paxfulApi, ctx) => {
+  const offerOwnerUsername = ctx.config.username;
+  const maxRetries = 5;
+  let retries = 0;
+  let messages;
 
-    while (retries < maxRetries) {
-      try {
-        const response = await paxfulApi.invoke('/paxful/v1/trade-chat/get', { trade_hash: payload.trade_hash });
-        if (response && response.data && response.data.messages) {
-          messages = response.data.messages;
-          break;
-        }
-        retries++;
-        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second before retrying
-      } catch (error) {
-        console.error('Error fetching trade chat messages:', error);
+  while (retries < maxRetries) {
+    try {
+      const response = await paxfulApi.invoke('/paxful/v1/trade-chat/get', { trade_hash: payload.trade_hash });
+      if (response && response.data && response.data.messages) {
+        messages = response.data.messages;
+        break;
       }
+      retries++;
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second before retrying
+    } catch (error) {
+      console.error('Error fetching trade chat messages:', error);
     }
+  }
 
-    if (!messages) {
-      console.warn('Messages are not available after multiple retries.');
+  if (!messages) {
+    console.warn('Messages are not available after multiple retries.');
+    return;
+  }
+
+  const nonSystemMessages = messages.filter((m) => m.type === 'msg' || m.type === 'bank-account-instruction').reverse();
+  const lastNonSystemMessage = nonSystemMessages[0];
+
+  if (lastNonSystemMessage.type === 'bank-account-instruction') {
+    const bankAccountDetails = lastNonSystemMessage.text.bank_account;
+    console.log('Received bank account details:', bankAccountDetails);
+  } else {
+    const isLastMessageByBuyer = lastNonSystemMessage.author !== offerOwnerUsername;
+    if (!isLastMessageByBuyer) {
       return;
     }
+  }
 
-    const nonSystemMessages = messages.filter((m) => m.type === 'msg' || m.type === 'bank-account-instruction').reverse();
-    const lastNonSystemMessage = nonSystemMessages[0];
-
-    if (lastNonSystemMessage.type === 'bank-account-instruction') {
-      const bankAccountDetails = lastNonSystemMessage.text.bank_account;
-      console.log('Received bank account details:', bankAccountDetails);
-    } else {
-      const isLastMessageByBuyer = lastNonSystemMessage.author !== offerOwnerUsername;
-      if (!isLastMessageByBuyer) {
-        return;
-      }
-    }
-
-    await saveChatMessageToFirestore(payload, messages);
-  },
+  await saveChatMessageToFirestore(payload, messages);
+},
 
 
   'trade.paid': async (payload, tradesHandler) => {
