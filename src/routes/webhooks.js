@@ -45,20 +45,20 @@ const saveTradeToFirestore = async (payload, collection) => {
   }
 };
 
-
-
 const saveChatMessageToFirestore = async (payload, messages) => {
   try {
     const docRef = db.collection('tradeMessages').doc(payload.trade_hash);
     await db.runTransaction(async (transaction) => {
       const doc = await transaction.get(docRef);
       if (!doc.exists) {
+        console.log(`Document for trade ${payload.trade_hash} does not exist. Creating a new document.`);
         transaction.set(docRef, {
           trade_hash: payload.trade_hash,
           messages: messages,
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
         });
       } else {
+        console.log(`Document for trade ${payload.trade_hash} exists. Updating the document.`);
         transaction.update(docRef, {
           messages: admin.firestore.FieldValue.arrayUnion(...messages),
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -71,29 +71,24 @@ const saveChatMessageToFirestore = async (payload, messages) => {
   }
 };
 
-const handlers = {
-  
-  'trade.started': async (payload, tradesHandler, paxfulApi) => {
-    //console.log('Handler trade.started called with payload:', payload);
+const handleTradeStarted = async (payload, paxfulApi) => {
+  try {
+    const response = await paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: payload.trade_hash });
+    console.log(`Trade Invocation: ${response}`);
+    await saveTradeToFirestore(payload, 'trades');
+    const message = "Hello..";
 
-    try {
-      const response = await paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: payload.trade_hash });
-      console.log(`Trade Invocation: ${response}`);
-      await saveTradeToFirestore(payload,'trades');
-      const message = "Hello..";
+    await paxfulApi.invoke('/paxful/v1/trade-chat/post', {
+      trade_hash: payload.trade_hash,
+      message,
+    });
+    console.log("Message Sent");
+  } catch (error) {
+    console.error('Error in trade.started handler:', error);
+  }
+};
 
-      await paxfulApi.invoke('/paxful/v1/trade-chat/post', {
-        trade_hash: payload.trade_hash,
-        message,
-      });
-      console.log("Message Sent");
-    } catch (error) {
-      console.error('Error in trade.started handler:', error);
-   }
-  },
-
-
-'trade.chat_message_received': async (payload, _, paxfulApi, ctx) => {
+const handleChatMessageReceived = async (payload, paxfulApi, ctx) => {
   const offerOwnerUsername = ctx.config.username;
   const maxRetries = 5;
   let retries = 0;
@@ -132,15 +127,28 @@ const handlers = {
   }
 
   await saveChatMessageToFirestore(payload, messages);
-},
+};
 
+const handlers = {
+  
+  'trade.started': async (payload, tradesHandler, paxfulApi) => {
+    console.log('New trade started webhook received:', payload);
+    await handleTradeStarted(payload, paxfulApi);
+  },
+
+  'trade.chat_message_received': async (payload, _, paxfulApi, ctx) => {
+    console.log('New trade chat message received webhook:', payload);
+    await handleChatMessageReceived(payload, paxfulApi, ctx);
+  },
 
   'trade.paid': async (payload, tradesHandler) => {
-    //console.log('Handler trade.paid called with payload:', payload);
+    console.log('Handler trade.paid called with payload:', payload);
     try {
       const tradeHash = payload.trade_hash;
       if (await tradesHandler.isFiatPaymentReceivedInFullAmount(tradeHash)) {
-        await tradesHandler.markCompleted(tradeHash);
+        //await tradesHandler.markCompleted(tradeHash);
+        console.log(`Trade ${tradeHash} marked as completed.`);
+        // Uncomment if you need to save the trade details on payment
         // await saveTradeToFirestore(payload, 'trades');
       }
     } catch (error) {
