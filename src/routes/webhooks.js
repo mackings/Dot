@@ -102,7 +102,7 @@ const handleChatMessageReceived = async (payload, paxfulApi, ctx) => {
         break;
       }
       retries++;
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second before retrying
+      await new Promise((resolve) => setTimeout(resolve, 60000)); // Wait for 1 second before retrying
     } catch (error) {
       console.error('Error fetching trade chat messages:', error);
     }
@@ -130,7 +130,7 @@ const handleChatMessageReceived = async (payload, paxfulApi, ctx) => {
 };
 
 const handlers = {
-  
+
   'trade.started': async (payload, tradesHandler, paxfulApi) => {
     console.log('New trade started webhook received:', payload);
     await handleTradeStarted(payload, paxfulApi);
@@ -138,7 +138,22 @@ const handlers = {
 
   'trade.chat_message_received': async (payload, _, paxfulApi, ctx) => {
     console.log('New trade chat message received webhook:', payload);
-    await handleChatMessageReceived(payload, paxfulApi, ctx);
+
+    const messages = [{
+      id: payload.id,
+      timestamp: payload.timestamp,
+      type: payload.type,
+      trade_hash: payload.trade_hash,
+      is_for_moderator: payload.is_for_moderator,
+      author: payload.author,
+      security_awareness: payload.security_awareness,
+      status: payload.status,
+      text: payload.text,
+      author_uuid: payload.author_uuid,
+      sent_by_moderator: payload.sent_by_moderator
+    }];
+
+    await saveChatMessageToFirestore(payload, messages);
   },
 
   'trade.paid': async (payload, tradesHandler) => {
