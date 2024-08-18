@@ -57,7 +57,7 @@ addNewStaff('Allpayers', newStaffDetails);
 
 
 const assignTradeToStaff = async (tradePayload) => {
-  
+
   try {
     const staffSnapshot = await db.collection('staff').get();
     let staffWithLeastTrades = staffSnapshot.docs[0];
@@ -250,6 +250,22 @@ router.post('/paxful/send-message', async (req, res) => {
   }
 });
 
+router.post('/paxful/addstaff', async (req, res) => {
+  const { staffId, staffDetails } = req.body;
+
+  try {
+    await db.collection('staff').doc(staffId).set({
+      ...staffDetails,
+      assignedTrades: [],
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    res.json({ status: 'success', message: `Staff ${staffId} added successfully.` });
+  } catch (error) {
+    console.error('Error adding new staff to Firestore:', error);
+    res.status(500).json({ status: 'error', message: 'Failed to add staff.', error });
+  }
+});
 
 router.post('/paxful/pay', async (req, res) => {
   const hash = req.body.hash;
