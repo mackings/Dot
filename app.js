@@ -4,6 +4,7 @@ const express = require('express');
 const { createPaxfulApi } = require('./src/api');
 const cors = require('cors');
 const http = require("http");
+const bodyParser = require('body-parser');
 
 dotenv.config();
 const port = 1000;
@@ -54,6 +55,8 @@ setInterval(keepAlive, 120000);
 app.use(express.json());
 app.use('/', require('./src/routes'));
 app.use(cors());
+app.use(bodyParser.json());
+
 app.listen(port, async () => {
     const paxfulApi = paxfulApis[0]; // Use the first Paxful API instance for now
 

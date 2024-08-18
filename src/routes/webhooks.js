@@ -32,13 +32,70 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-const saveTradeToFirestore = async (payload, collection) => {
+const addNewStaff = async (staffId, staffDetails) => {
   try {
+    const staffRef = db.collection('staff').doc(staffId);
+    
+    await staffRef.set({
+      ...staffDetails, 
+      assignedTrades: [],
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    console.log(`Staff ${staffId} added to Firestore and ready to receive trades.`);
+  } catch (error) {
+    console.error('Error adding new staff to Firestore:', error);
+  }
+};
+const newStaffDetails = {
+  name: 'Mac Kingsley',
+  email: 'macsonline500@gmail.com',
+  role: 'Payer',
+};
+
+addNewStaff('Allpayers', newStaffDetails);
+
+
+const assignTradeToStaff = async (tradePayload) => {
+  
+  try {
+    const staffSnapshot = await db.collection('staff').get();
+    let staffWithLeastTrades = staffSnapshot.docs[0];
+
+    staffSnapshot.docs.forEach(doc => {
+      if (doc.data().assignedTrades.length < staffWithLeastTrades.data().assignedTrades.length) {
+        staffWithLeastTrades = doc;
+      }
+    });
+
+    const assignedStaff = staffWithLeastTrades.id;
+    const staffRef = db.collection('staff').doc(assignedStaff);
+    
+    await staffRef.update({
+      assignedTrades: admin.firestore.FieldValue.arrayUnion(tradePayload.trade_hash),
+    });
+
+    console.log(`Trade ${tradePayload.trade_hash} assigned to ${assignedStaff}.`);
+  } catch (error) {
+    console.error('Error assigning trade to staff:', error);
+  }
+};
+
+
+
+
+const saveTradeToFirestore = async (payload, collection) => {
+
+  try {
+
     const docRef = db.collection(collection).doc(payload.trade_hash);
     await docRef.set({
       ...payload,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
+
+    await assignTradeToStaff(payload);
+    console.log(`Trade ${payload.trade_hash} saved to Firestore and assigned.`);
     console.log(`Trade ${payload.trade_hash} saved to Firestore.`);
   } catch (error) {
     console.error('Error saving the trade to Firestore:', error);
@@ -71,7 +128,10 @@ const saveChatMessageToFirestore = async (payload, messages) => {
   }
 };
 
+
+
 const handleTradeStarted = async (payload, paxfulApi) => {
+
   try {
     const response = await paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: payload.trade_hash });
     console.log(`Trade Invocation: ${response}`);
@@ -87,6 +147,7 @@ const handleTradeStarted = async (payload, paxfulApi) => {
     console.error('Error in trade.started handler:', error);
   }
 };
+
 
 const handleChatMessageReceived = async (payload, paxfulApi, ctx) => {
   const offerOwnerUsername = ctx.config.username;
@@ -171,7 +232,6 @@ const handlers = {
     }
   },
 };
-
 
 
 router.post('/paxful/send-message', async (req, res) => {
