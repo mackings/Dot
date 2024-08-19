@@ -47,6 +47,8 @@ const addNewStaff = async (staffId, staffDetails) => {
     console.error('Error adding new staff to Firestore:', error);
   }
 };
+
+
 const newStaffDetails = {
   name: 'Mac Kingsley',
   email: 'macsonline500@gmail.com',
@@ -57,7 +59,6 @@ addNewStaff('Allpayers', newStaffDetails);
 
 
 const assignTradeToStaff = async (tradePayload) => {
-
   try {
     const staffSnapshot = await db.collection('staff').get();
     let staffWithLeastTrades = staffSnapshot.docs[0];
@@ -70,9 +71,14 @@ const assignTradeToStaff = async (tradePayload) => {
 
     const assignedStaff = staffWithLeastTrades.id;
     const staffRef = db.collection('staff').doc(assignedStaff);
+
+    // Update with both trade_hash and fiat_amount_requested
     
     await staffRef.update({
-      assignedTrades: admin.firestore.FieldValue.arrayUnion(tradePayload.trade_hash),
+      assignedTrades: admin.firestore.FieldValue.arrayUnion({
+        trade_hash: tradePayload.trade_hash,
+        fiat_amount_requested: tradePayload.fiat_amount_requested,
+      }),
     });
 
     console.log(`Trade ${tradePayload.trade_hash} assigned to ${assignedStaff}.`);
@@ -80,8 +86,6 @@ const assignTradeToStaff = async (tradePayload) => {
     console.error('Error assigning trade to staff:', error);
   }
 };
-
-
 
 
 const saveTradeToFirestore = async (payload, collection) => {
