@@ -58,12 +58,61 @@ const newStaffDetails = {
 addNewStaff('Allpayers', newStaffDetails);
 
 
+// const assignTradeToStaff = async (tradePayload) => {
+//   try {
+//     const staffSnapshot = await db.collection('staff').get();
+//     let staffWithLeastTrades = staffSnapshot.docs[0];
+
+//     staffSnapshot.docs.forEach(doc => {
+//       if (doc.data().assignedTrades.length < staffWithLeastTrades.data().assignedTrades.length) {
+//         staffWithLeastTrades = doc;
+//       }
+//     });
+
+//     const assignedStaff = staffWithLeastTrades.id;
+//     const staffRef = db.collection('staff').doc(assignedStaff);
+
+//     // Update with both trade_hash and fiat_amount_requested
+    
+//     await staffRef.update({
+//       assignedTrades: admin.firestore.FieldValue.arrayUnion({
+//         trade_hash: tradePayload.trade_hash,
+//         fiat_amount_requested: tradePayload.fiat_amount_requested,
+//       }),
+//     });
+
+//     console.log(`Trade ${tradePayload.trade_hash} assigned to ${assignedStaff}.`);
+//   } catch (error) {
+//     console.error('Error assigning trade to staff:', error);
+//   }
+// };
+
+
+
 const assignTradeToStaff = async (tradePayload) => {
   try {
     const staffSnapshot = await db.collection('staff').get();
-    let staffWithLeastTrades = staffSnapshot.docs[0];
+    let eligibleStaff = [];
 
+    // Filter out staff with pending trades that haven't been marked paid
     staffSnapshot.docs.forEach(doc => {
+      const staffData = doc.data();
+      const hasPendingTrades = staffData.assignedTrades.some(trade => !trade.isPaid);
+
+      if (!hasPendingTrades) {
+        eligibleStaff.push(doc);
+      }
+    });
+
+    if (eligibleStaff.length === 0) {
+      console.log('All staff have pending unpaid trades.');
+      return;
+    }
+
+    // Find the staff with the least number of trades
+    let staffWithLeastTrades = eligibleStaff[0];
+
+    eligibleStaff.forEach(doc => {
       if (doc.data().assignedTrades.length < staffWithLeastTrades.data().assignedTrades.length) {
         staffWithLeastTrades = doc;
       }
@@ -73,11 +122,11 @@ const assignTradeToStaff = async (tradePayload) => {
     const staffRef = db.collection('staff').doc(assignedStaff);
 
     // Update with both trade_hash and fiat_amount_requested
-    
     await staffRef.update({
       assignedTrades: admin.firestore.FieldValue.arrayUnion({
         trade_hash: tradePayload.trade_hash,
         fiat_amount_requested: tradePayload.fiat_amount_requested,
+        isPaid: false // Add isPaid flag to track the payment status
       }),
     });
 
@@ -86,7 +135,6 @@ const assignTradeToStaff = async (tradePayload) => {
     console.error('Error assigning trade to staff:', error);
   }
 };
-
 
 const saveTradeToFirestore = async (payload, collection) => {
 
