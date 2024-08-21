@@ -59,7 +59,7 @@ addNewStaff('Allpayers', newStaffDetails);
 
 
 const assignTradeToStaff = async (tradePayload) => {
-  
+
   try {
     const staffSnapshot = await db.collection('staff').get();
     let eligibleStaff = [];
@@ -414,12 +414,16 @@ router.post('/trade/mark', async (req, res) => {
     // Save the updated assignedTrades array back to Firestore
     await staffRef.update({ assignedTrades });
 
+    // Now call the function to assign unassigned trades
+    await assignUnassignedTrade();
+
     res.json({ status: 'success', message: 'Trade marked as paid successfully.' });
   } catch (error) {
     console.error('Error marking trade as paid:', error);
     res.status(500).json({ status: 'error', message: 'Failed to mark trade as paid.', error });
   }
 });
+
 
 
 router.post('/paxful/webhook', async (req, res) => {
