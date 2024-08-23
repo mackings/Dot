@@ -180,7 +180,6 @@ const assignUnassignedTrade = async () => {
 
 
 
-
 const saveTradeToFirestore = async (payload, collection) => {
 
   try {
@@ -224,7 +223,6 @@ const saveChatMessageToFirestore = async (payload, messages) => {
     console.error('Error saving chat messages to Firestore:', error);
   }
 };
-
 
 
 const handleTradeStarted = async (payload, paxfulApi) => {
@@ -292,7 +290,7 @@ const handlers = {
 
   'trade.started': async (payload, tradesHandler, paxfulApi) => {
     console.log('New trade started webhook received:', payload);
-    await handleTradeStarted(payload, paxfulApi);
+   // await handleTradeStarted(payload, paxfulApi);
   },
 
   'trade.chat_message_received': async (payload, _, paxfulApi, ctx) => {
@@ -312,7 +310,7 @@ const handlers = {
       sent_by_moderator: payload.sent_by_moderator
     }];
 
-    await saveChatMessageToFirestore(payload, messages);
+  //  await saveChatMessageToFirestore(payload, messages);
   },
 
   'trade.paid': async (payload, tradesHandler) => {
@@ -423,8 +421,6 @@ router.post('/trade/mark', async (req, res) => {
     res.status(500).json({ status: 'error', message: 'Failed to mark trade as paid.', error });
   }
 });
-
-
 
 router.post('/paxful/webhook', async (req, res) => {
   res.set('X-Paxful-Request-Challenge', req.headers['x-paxful-request-challenge']);
