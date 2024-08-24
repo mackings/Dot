@@ -20,6 +20,8 @@ console.log('Paxful API instances created:', paxfulApis);
 let username = null;
 
 const app = express();
+
+app.use(cors());
 // Savings original raw body, needed for Paxful webhook signature checking
 app.use(function(req, res, next) {
     req.rawBody = '';
@@ -54,7 +56,7 @@ setInterval(keepAlive, 120000);
 
 app.use(express.json());
 app.use('/', require('./src/routes'));
-app.use(cors());
+//app.use(cors());
 app.use(bodyParser.json());
 
 app.listen(port, async () => {
