@@ -55,7 +55,7 @@ const newStaffDetails = {
   role: 'Payer',
 };
 
-addNewStaff('Allpayers', newStaffDetails);
+addNewStaff('Auto Marker', newStaffDetails);
 
 
 const assignTradeToStaff = async (tradePayload) => {
@@ -97,13 +97,15 @@ const assignTradeToStaff = async (tradePayload) => {
 
     const assignedStaff = staffWithLeastTrades.id;
     const staffRef = db.collection('staff').doc(assignedStaff);
+    const assignedAt = admin.firestore.FieldValue.serverTimestamp();
 
-    // Assign trade to staff
     await staffRef.update({
+      
       assignedTrades: admin.firestore.FieldValue.arrayUnion({
         trade_hash: tradePayload.trade_hash,
         fiat_amount_requested: tradePayload.fiat_amount_requested,
-        isPaid: false // Add isPaid flag to track the payment status
+        assignedAt:assignedAt,
+        isPaid: false 
       }),
     });
 
@@ -169,7 +171,6 @@ const assignUnassignedTrade = async () => {
       }),
     });
 
-    // Delete the trade from unassignedTrades after assignment
     await db.collection('unassignedTrades').doc(unassignedTradeDoc.id).delete();
 
     console.log(`Unassigned trade ${unassignedTrade.trade_hash} assigned to ${assignedStaff}.`);
@@ -378,7 +379,7 @@ router.post('/paxful/pay', async (req, res) => {
 });
 
 router.post('/trade/mark', async (req, res) => {
-  const { trade_hash } = req.body;
+  const { trade_hash, markedAt } = req.body; // Accept markedAt from the request body
 
   try {
     // Query Firestore to find the staff member with the given trade_hash
@@ -406,8 +407,12 @@ router.post('/trade/mark', async (req, res) => {
     const staffDoc = await staffRef.get();
     const assignedTrades = staffDoc.data().assignedTrades;
 
-    // Update the isPaid field to true for the specific trade
-    assignedTrades[staffToUpdate.tradeIndex].isPaid = true;
+    // Get the specific trade to update
+    const tradeToUpdate = assignedTrades[staffToUpdate.tradeIndex];
+
+    // Update the isPaid field to true and set the markedAt from the request body
+    tradeToUpdate.isPaid = true;
+    tradeToUpdate.markedAt = markedAt; // Use the markedAt provided in the request body
 
     // Save the updated assignedTrades array back to Firestore
     await staffRef.update({ assignedTrades });
@@ -415,12 +420,16 @@ router.post('/trade/mark', async (req, res) => {
     // Now call the function to assign unassigned trades
     await assignUnassignedTrade();
 
-    res.json({ status: 'success', message: 'Trade marked as paid successfully.' });
+    res.json({
+      status: 'success',
+      message: `Trade marked as paid successfully with markedAt time: ${markedAt}.`
+    });
   } catch (error) {
     console.error('Error marking trade as paid:', error);
     res.status(500).json({ status: 'error', message: 'Failed to mark trade as paid.', error });
   }
 });
+
 
 router.post('/paxful/webhook', async (req, res) => {
   res.set('X-Paxful-Request-Challenge', req.headers['x-paxful-request-challenge']);
