@@ -59,7 +59,6 @@ addNewStaff('Auto Marker', newStaffDetails);
 
 
 const assignTradeToStaff = async (tradePayload) => {
-
   try {
     const staffSnapshot = await db.collection('staff').get();
     let eligibleStaff = [];
@@ -81,7 +80,7 @@ const assignTradeToStaff = async (tradePayload) => {
       await db.collection('unassignedTrades').add({
         trade_hash: tradePayload.trade_hash,
         fiat_amount_requested: tradePayload.fiat_amount_requested,
-        timestamp: admin.firestore.FieldValue.serverTimestamp()
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       return;
@@ -97,15 +96,17 @@ const assignTradeToStaff = async (tradePayload) => {
 
     const assignedStaff = staffWithLeastTrades.id;
     const staffRef = db.collection('staff').doc(assignedStaff);
-    const assignedAt = admin.firestore.FieldValue.serverTimestamp();
 
+    // First, get the server timestamp
+    const assignedAt = new Date();
+
+    // Now update the assignedTrades array without using serverTimestamp() inside arrayUnion
     await staffRef.update({
-      
       assignedTrades: admin.firestore.FieldValue.arrayUnion({
         trade_hash: tradePayload.trade_hash,
         fiat_amount_requested: tradePayload.fiat_amount_requested,
-        assignedAt:assignedAt,
-        isPaid: false 
+        assignedAt: assignedAt, // Assign the manual timestamp here
+        isPaid: false
       }),
     });
 
