@@ -510,8 +510,9 @@ router.post('/paxful/binance/rates', async (req, res) => {
     // Make a request to the Binance API
     const response = await axios.get('https://www.binance.com/api/v3/ticker/price?symbol=BTCUSDT');
 
-    // Extract the price from the response
-    const price = response.data.price;
+    // Extract the price from the response and convert it to a number
+    const priceString = response.data.price;
+    const price = Math.round(parseFloat(priceString));  // Convert to float and round to nearest integer
 
     // Return the price in the response
     res.json({ price });
