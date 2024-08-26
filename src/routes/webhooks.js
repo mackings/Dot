@@ -380,7 +380,8 @@ router.post('/paxful/pay', async (req, res) => {
 });
 
 router.post('/trade/mark', async (req, res) => {
-  const { trade_hash, markedAt } = req.body; // Accept markedAt from the request body
+
+  const { trade_hash, markedAt } = req.body;
 
   try {
     // Query Firestore to find the staff member with the given trade_hash
@@ -479,5 +480,7 @@ router.post('/paxful/webhook', async (req, res) => {
     res.status(204).json({ status: 'ignored', message: 'Unhandled event' });
   }
 });
+
+
 
 module.exports = router;
