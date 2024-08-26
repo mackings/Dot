@@ -484,7 +484,10 @@ router.post('/paxful/webhook', async (req, res) => {
 
 
 
+
+
 /////Rates 
+
 
 router.post('/paxful/paxful/rates', async (req, res) => {
 

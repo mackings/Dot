@@ -14,7 +14,7 @@ const privateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
 
 
 
-router.post('/paxful/paxful/rates', async (req, res) => {
+router.post('/paxful/usdrates', async (req, res) => {
 
     const hash = req.body.hash;
     const paxfulApi = req.context.services.paxfulApi;
