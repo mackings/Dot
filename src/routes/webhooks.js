@@ -490,17 +490,27 @@ router.post('/paxful/webhook', async (req, res) => {
 
 
 router.post('/paxful/paxful/rates', async (req, res) => {
-
   const hash = req.body.hash;
   const paxfulApi = req.context.services.paxfulApi;
-  try {
-   const theres = await paxfulApi.invoke('/paxful/v1/currency/btc?response=text', {});
 
-      res.json({ price: theres });
-      console.log(theres);
+  try {
+    const response = await paxfulApi.invoke('/paxful/v1/currency/btc?response=text', {});
+
+    // Convert the response to a number
+    const price = parseFloat(response);
+
+    // Check if the conversion was successful
+    if (isNaN(price)) {
+      return res.status(500).json({ status: 'error', message: 'Invalid price data' });
+    }
+
+    // Send the price as a double in the response
+    res.json({ price });
+
+    console.log(`Price: ${price}`);
   } catch (error) {
-      console.error('Error sending chat message:', error);
-      res.status(500).json({ status: 'error', message: 'Failed to send message.','error':error });
+    console.error('Error fetching Paxful rate:', error);
+    res.status(500).json({ status: 'error', message: 'Failed to fetch price from Paxful', error });
   }
 });
 
@@ -511,13 +521,21 @@ router.post('/paxful/binance/rates', async (req, res) => {
     const response = await axios.get('https://www.binance.com/api/v3/ticker/price?symbol=BTCUSDT');
 
     // Extract the price from the response
-    const price = response.data.price;
+    const priceString = response.data.price;
+    
+    // Convert the price to a floating-point number
+    const price = parseFloat(priceString);
+
+    // Check if the conversion was successful
+    if (isNaN(price)) {
+      return res.status(500).json({ status: 'error', message: 'Invalid price data' });
+    }
 
     // Return the price in the response
     res.json({ price });
   } catch (error) {
     // Handle any errors
-    console.error(error);
+    console.error('Error fetching Binance rate:', error);
     res.status(500).json({ error: 'Failed to fetch the price from Binance' });
   }
 });
