@@ -493,7 +493,7 @@ router.post('/paxful/paxful/rates', async (req, res) => {
   try {
    const theres = await paxfulApi.invoke('/paxful/v1/currency/btc?response=text', {});
 
-      res.json({ price:theres });
+      res.json({ status: 'success', message: 'Message sent successfully.','Done?':theres });
       console.log(theres);
   } catch (error) {
       console.error('Error sending chat message:', error);
