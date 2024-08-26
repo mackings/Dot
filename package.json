@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "@paxful/sdk-js": "^0.6.8",
+    "axios": "^1.7.5",
     "big.js": "^6.1.1",
     "cors": "^2.8.5",
     "dotenv": "^10.0.0",
