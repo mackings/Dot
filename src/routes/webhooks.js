@@ -484,9 +484,7 @@ router.post('/paxful/webhook', async (req, res) => {
 
 
 
-
-
-/////Rates 
+/////Rates pax/bin
 
 
 router.post('/paxful/paxful/rates', async (req, res) => {
@@ -494,6 +492,7 @@ router.post('/paxful/paxful/rates', async (req, res) => {
   const paxfulApi = req.context.services.paxfulApi;
 
   try {
+
     const response = await paxfulApi.invoke('/paxful/v1/currency/btc?response=text', {});
 
     // Convert the response to a number
