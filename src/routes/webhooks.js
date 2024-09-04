@@ -231,6 +231,7 @@ const saveChatMessageToFirestore = async (payload, messages) => {
 const handleTradeStarted = async (payload, paxfulApi) => {
 
   try {
+    
     const response = await paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: payload.trade_hash });
     console.log(`Trade Invocation: ${response}`);
     await saveTradeToFirestore(payload, 'trades');
