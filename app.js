@@ -68,7 +68,7 @@ app.listen(port, async () => {
 
     if (!username) {
         try {
-            const response = await paxfulApi.invoke('/paxful/v1/user/me');
+            const response = await paxfulApi.invoke('/v1/user/me');
             if (response.error) {
                 throw new Error(response.error_description);
             }
