@@ -1,3 +1,4 @@
+
 const nacl = require('tweetnacl');
 
 module.exports.isValidSignature = (signature, host, originalUrl, rawBody) => {

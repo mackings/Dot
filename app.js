@@ -67,17 +67,18 @@ app.listen(port, async () => {
     }
 
     if (!username) {
-        try {
-            const response = await paxfulApi.invoke('/v1/user/me');
-            if (response.error) {
-                throw new Error(response.error_description);
-            }
+        console.log(username);
+        // try { 
+        //     const response = await paxfulApi.invoke('noones/v1/user/me');
+        //     if (response.error) {
+        //         throw new Error(response.error_description);
+        //     }
 
-            username = response.data.username;
-        } catch (error) {
-            console.error('Error invoking Paxful API:', error);
-            throw error;
-        }
+        //     username = response.data.username;
+        // } catch (error) {
+        //     console.error('Error invoking Paxful API:', error);
+        //     throw error;
+        // }
     }
 
     console.debug(`App listening at http://localhost:${port}`);
