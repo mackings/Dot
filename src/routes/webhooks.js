@@ -491,7 +491,7 @@ router.get('/staff/:staffId/history', async (req, res) => {
 
 
 router.post('/trade/mark', async (req, res) => {
-  const { trade_hash, markedAt, amountPaid } = req.body;
+  const { trade_hash, markedAt, amountPaid, name } = req.body;
 
   try {
 
