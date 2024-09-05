@@ -476,7 +476,8 @@ router.get('/staff/:staffId/history', async (req, res) => {
         trade_hash: trade.trade_hash,
         fiat_amount_requested: trade.fiat_amount_requested,
         amountPaid: trade.amountPaid,
-        markedAt: trade.markedAt
+        markedAt: trade.markedAt,
+        name:trade.name
       }));
 
     res.json({
@@ -526,6 +527,7 @@ router.post('/trade/mark', async (req, res) => {
     tradeToUpdate.isPaid = true;
     tradeToUpdate.markedAt = markedAt;
     tradeToUpdate.amountPaid = amountPaid; // Save the amount paid
+    tradeToUpdate.name = name;
 
     // Save the updated assignedTrades array back to Firestore
     await staffRef.update({ assignedTrades });
