@@ -49,7 +49,6 @@ const addNewStaff = async (staffId, staffDetails) => {
   }
 };
 
-
 const newStaffDetails = {
   name: 'Mac Kingsley',
   email: 'macsonline500@gmail.com',
@@ -58,6 +57,7 @@ const newStaffDetails = {
 
 addNewStaff('Auto Marker', newStaffDetails);
 
+//Assign Trades to Staff Automatically
 
 const assignTradeToStaff = async (tradePayload) => {
   try {
@@ -117,9 +117,81 @@ const assignTradeToStaff = async (tradePayload) => {
   }
 };
 
+//Assign Trades Maunally
+
+const assignTradesToStaffManually = async (req, res) => {
+  try {
+    const { staffId, numberOfTrades } = req.body;
+
+    // Validate the request
+    if (!staffId || !numberOfTrades || isNaN(numberOfTrades)) {
+      return res.status(400).json({ message: 'Invalid staffId or numberOfTrades' });
+    }
+
+    const numTrades = parseInt(numberOfTrades);
+
+    // Fetch the staff document
+    const staffRef = db.collection('staff').doc(staffId);
+    const staffDoc = await staffRef.get();
+
+    if (!staffDoc.exists) {
+      return res.status(404).json({ message: 'Staff not found' });
+    }
+
+    // Fetch the specified number of unassigned trades
+    const unassignedTradesSnapshot = await db.collection('unassignedTrades')
+      .orderBy('timestamp')
+      .limit(numTrades)
+      .get();
+
+    if (unassignedTradesSnapshot.empty) {
+      return res.status(404).json({ message: 'No unassigned trades available.' });
+    }
+
+    // Get the unassigned trades data
+    const unassignedTrades = [];
+    unassignedTradesSnapshot.docs.forEach((doc) => {
+      unassignedTrades.push({
+        id: doc.id,
+        ...doc.data(),
+      });
+    });
+
+    // Assign the trades to the staff
+    const assignedTrades = unassignedTrades.map(trade => ({
+      trade_hash: trade.trade_hash,
+      fiat_amount_requested: trade.fiat_amount_requested,
+      isPaid: false,
+      assignedAt: new Date(),
+    }));
+
+    await staffRef.update({
+      assignedTrades: admin.firestore.FieldValue.arrayUnion(...assignedTrades),
+    });
+
+    // Remove the assigned trades from the unassignedTrades collection
+    const batch = db.batch();
+    unassignedTrades.forEach(trade => {
+      const unassignedTradeRef = db.collection('unassignedTrades').doc(trade.id);
+      batch.delete(unassignedTradeRef);
+    });
+
+    await batch.commit();
+
+    res.status(200).json({
+      message: `${numTrades} trades assigned to staff ${staffId}.`,
+    });
+  } catch (error) {
+    console.error('Error assigning trades manually:', error);
+    res.status(500).json({
+      message: 'Internal server error',
+      error: error.message,
+    });
+  }
+};
+
 
 // Function to assign a trade from unassignedTrades when staff becomes free
-
 
 const assignUnassignedTrade = async () => {
 
@@ -183,8 +255,6 @@ const assignUnassignedTrade = async () => {
     console.error('Error assigning unassigned trade:', error);
   }
 };
-
-
 
 const saveTradeToFirestore = async (payload, collection) => {
 
@@ -424,7 +494,7 @@ router.post('/trade/mark', async (req, res) => {
   const { trade_hash, markedAt, amountPaid } = req.body;
 
   try {
-    // Query Firestore to find the staff member with the given trade_hash
+
     const staffSnapshot = await admin.firestore().collection('staff').get();
     let staffToUpdate;
 
@@ -473,6 +543,8 @@ router.post('/trade/mark', async (req, res) => {
   }
 });
 
+//Manual Assignment 
+router.post('/assign/manual', assignTradesToStaffManually);
 
 
 router.post('/paxful/webhook', async (req, res) => {
