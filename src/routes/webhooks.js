@@ -119,7 +119,10 @@ const assignTradeToStaff = async (tradePayload) => {
 
 
 // Function to assign a trade from unassignedTrades when staff becomes free
+
+
 const assignUnassignedTrade = async () => {
+
   try {
     // Check for free staff
     const staffSnapshot = await db.collection('staff').get();
@@ -380,9 +383,45 @@ router.post('/paxful/pay', async (req, res) => {
   }
 });
 
-router.post('/trade/mark', async (req, res) => {
+//Transactions
 
-  const { trade_hash, markedAt } = req.body;
+router.get('/staff/:staffId/history', async (req, res) => {
+
+  const { staffId } = req.params;
+
+  try {
+    // Get the staff document
+    const staffDoc = await admin.firestore().collection('staff').doc(staffId).get();
+
+    if (!staffDoc.exists) {
+      return res.status(404).json({ status: 'error', message: 'Staff not found.' });
+    }
+
+    const assignedTrades = staffDoc.data().assignedTrades;
+
+    // Filter out paid trades to create transaction history
+    const transactionHistory = assignedTrades
+      .filter(trade => trade.isPaid)
+      .map(trade => ({
+        trade_hash: trade.trade_hash,
+        fiat_amount_requested: trade.fiat_amount_requested,
+        amountPaid: trade.amountPaid,
+        markedAt: trade.markedAt
+      }));
+
+    res.json({
+      status: 'success',
+      data: transactionHistory
+    });
+  } catch (error) {
+    console.error('Error fetching transaction history:', error);
+    res.status(500).json({ status: 'error', message: 'Failed to fetch transaction history.', error });
+  }
+});
+
+
+router.post('/trade/mark', async (req, res) => {
+  const { trade_hash, markedAt, amountPaid } = req.body;
 
   try {
     // Query Firestore to find the staff member with the given trade_hash
@@ -413,25 +452,27 @@ router.post('/trade/mark', async (req, res) => {
     // Get the specific trade to update
     const tradeToUpdate = assignedTrades[staffToUpdate.tradeIndex];
 
-    // Update the isPaid field to true and set the markedAt from the request body
+    // Update the trade with payment info
     tradeToUpdate.isPaid = true;
-    tradeToUpdate.markedAt = markedAt; // Use the markedAt provided in the request body
+    tradeToUpdate.markedAt = markedAt;
+    tradeToUpdate.amountPaid = amountPaid; // Save the amount paid
 
     // Save the updated assignedTrades array back to Firestore
     await staffRef.update({ assignedTrades });
 
-    // Now call the function to assign unassigned trades
+    // Call the function to assign unassigned trades
     await assignUnassignedTrade();
 
     res.json({
       status: 'success',
-      message: `Trade marked as paid successfully with markedAt time: ${markedAt}.`
+      message: `Trade marked as paid successfully with markedAt time: ${markedAt} and amountPaid: ${amountPaid}.`
     });
   } catch (error) {
     console.error('Error marking trade as paid:', error);
     res.status(500).json({ status: 'error', message: 'Failed to mark trade as paid.', error });
   }
 });
+
 
 
 router.post('/paxful/webhook', async (req, res) => {
