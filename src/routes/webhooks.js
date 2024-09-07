@@ -492,27 +492,26 @@ router.get('/staff/:staffId/history', async (req, res) => {
 
 
 router.post('/trade/mark', async (req, res) => {
-  const { trade_hash, markedAt, amountPaid, name } = req.body;
+  const { markedAt, trade_hash, name, amountPaid } = req.body;
 
   try {
-
     const staffSnapshot = await admin.firestore().collection('staff').get();
     let staffToUpdate;
 
     staffSnapshot.docs.forEach(doc => {
       const staffData = doc.data();
-      const tradeIndex = staffData.assignedTrades.findIndex(trade => trade.trade_hash === trade_hash);
-
-      if (tradeIndex !== -1) {
+      if (staffData.assignedTrades && staffData.assignedTrades.length > 0) {
+        // Get the latest assigned trade
+        const latestTradeIndex = staffData.assignedTrades.length - 1;
         staffToUpdate = {
           docId: doc.id,
-          tradeIndex
+          tradeIndex: latestTradeIndex
         };
       }
     });
 
     if (!staffToUpdate) {
-      return res.status(404).json({ status: 'error', message: 'Trade not found.' });
+      return res.status(404).json({ status: 'error', message: 'No assigned trades found for staff.' });
     }
 
     // Reference the staff document
@@ -520,30 +519,81 @@ router.post('/trade/mark', async (req, res) => {
     const staffDoc = await staffRef.get();
     const assignedTrades = staffDoc.data().assignedTrades;
 
-    // Get the specific trade to update
+    // Update the latest trade with the provided markedAt and isPaid fields
     const tradeToUpdate = assignedTrades[staffToUpdate.tradeIndex];
-
-    // Update the trade with payment info
     tradeToUpdate.isPaid = true;
     tradeToUpdate.markedAt = markedAt;
-    tradeToUpdate.amountPaid = amountPaid; // Save the amount paid
-    tradeToUpdate.name = name;
+
+    // If name or amountPaid are provided, update them (if not already present)
+    if (name && !tradeToUpdate.name) {
+      tradeToUpdate.name = name;
+    }
+    if (amountPaid && !tradeToUpdate.amountPaid) {
+      tradeToUpdate.amountPaid = amountPaid;
+    }
 
     // Save the updated assignedTrades array back to Firestore
     await staffRef.update({ assignedTrades });
 
-    // Call the function to assign unassigned trades
-    await assignUnassignedTrade();
-
     res.json({
       status: 'success',
-      message: `Trade marked as paid successfully with markedAt time: ${markedAt} and amountPaid: ${amountPaid}.`
+      message: `Trade marked as paid successfully with markedAt: ${markedAt}.`
     });
   } catch (error) {
     console.error('Error marking trade as paid:', error);
     res.status(500).json({ status: 'error', message: 'Failed to mark trade as paid.', error });
   }
 });
+
+
+//Update dEtails 
+
+router.post('/trade/update', async (req, res) => {
+  const { name, amountPaid } = req.body;
+
+  try {
+    const staffSnapshot = await admin.firestore().collection('staff').get();
+    let staffToUpdate;
+
+    staffSnapshot.docs.forEach(doc => {
+      const staffData = doc.data();
+      if (staffData.assignedTrades && staffData.assignedTrades.length > 0) {
+        // Get the latest assigned trade
+        const latestTradeIndex = staffData.assignedTrades.length - 1;
+        staffToUpdate = {
+          docId: doc.id,
+          tradeIndex: latestTradeIndex
+        };
+      }
+    });
+
+    if (!staffToUpdate) {
+      return res.status(404).json({ status: 'error', message: 'No assigned trades found for staff.' });
+    }
+
+    // Reference the staff document
+    const staffRef = admin.firestore().collection('staff').doc(staffToUpdate.docId);
+    const staffDoc = await staffRef.get();
+    const assignedTrades = staffDoc.data().assignedTrades;
+
+    // Update the latest trade with the provided name and amountPaid
+    const tradeToUpdate = assignedTrades[staffToUpdate.tradeIndex];
+    tradeToUpdate.name = name;
+    tradeToUpdate.amountPaid = amountPaid;
+
+    // Save the updated assignedTrades array back to Firestore
+    await staffRef.update({ assignedTrades });
+
+    res.json({
+      status: 'success',
+      message: `Latest trade updated successfully: name = ${name}, amountPaid = ${amountPaid}.`
+    });
+  } catch (error) {
+    console.error('Error updating trade details:', error);
+    res.status(500).json({ status: 'error', message: 'Failed to update trade details.', error });
+  }
+});
+
 
 //Manual Assignment 
 router.post('/assign/manual', assignTradesToStaffManually);
