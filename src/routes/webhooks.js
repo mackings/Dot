@@ -194,7 +194,6 @@ const assignTradesToStaffManually = async (req, res) => {
 // Function to assign a trade from unassignedTrades when staff becomes free
 
 const assignUnassignedTrade = async () => {
-
   try {
     // Check for free staff
     const staffSnapshot = await db.collection('staff').get();
@@ -239,12 +238,13 @@ const assignUnassignedTrade = async () => {
     const assignedStaff = staffWithLeastTrades.id;
     const staffRef = db.collection('staff').doc(assignedStaff);
 
-    // Assign trade to the free staff
+    // Assign trade to the free staff with current timestamp
     await staffRef.update({
       assignedTrades: admin.firestore.FieldValue.arrayUnion({
         trade_hash: unassignedTrade.trade_hash,
         fiat_amount_requested: unassignedTrade.fiat_amount_requested,
-        isPaid: false // Mark as unpaid
+        isPaid: false, // Mark as unpaid
+        assignedAt: admin.firestore.Timestamp.now() // Add current timestamp
       }),
     });
 
@@ -255,6 +255,7 @@ const assignUnassignedTrade = async () => {
     console.error('Error assigning unassigned trade:', error);
   }
 };
+
 
 const saveTradeToFirestore = async (payload, collection) => {
 
