@@ -549,50 +549,52 @@ router.post('/trade/mark', async (req, res) => {
 //Update dEtails 
 
 router.post('/trade/update', async (req, res) => {
-  const { name, amountPaid } = req.body;
+  const { staffId, name, amountPaid } = req.body; // Accept staffId in the request
 
   try {
-    const staffSnapshot = await admin.firestore().collection('staff').get();
-    let staffToUpdate;
+    // Fetch the specific staff document by staffId
+    const staffRef = admin.firestore().collection('staff').doc(staffId);
+    const staffDoc = await staffRef.get();
 
-    staffSnapshot.docs.forEach(doc => {
-      const staffData = doc.data();
-      if (staffData.assignedTrades && staffData.assignedTrades.length > 0) {
-        // Get the latest assigned trade
-        const latestTradeIndex = staffData.assignedTrades.length - 1;
-        staffToUpdate = {
-          docId: doc.id,
-          tradeIndex: latestTradeIndex
-        };
-      }
-    });
-
-    if (!staffToUpdate) {
-      return res.status(404).json({ status: 'error', message: 'No assigned trades found for staff.' });
+    if (!staffDoc.exists) {
+      return res.status(404).json({ status: 'error', message: 'Staff not found.' });
     }
 
-    // Reference the staff document
-    const staffRef = admin.firestore().collection('staff').doc(staffToUpdate.docId);
-    const staffDoc = await staffRef.get();
-    const assignedTrades = staffDoc.data().assignedTrades;
+    const staffData = staffDoc.data();
+    const assignedTrades = staffData.assignedTrades;
+
+    // Check if the staff has any assigned trades
+    if (!assignedTrades || assignedTrades.length === 0) {
+      return res.status(404).json({ status: 'error', message: 'No trades assigned to this staff.' });
+    }
+
+    // Get the latest assigned trade
+    const latestTradeIndex = assignedTrades.length - 1;
+    const latestTrade = assignedTrades[latestTradeIndex];
+
+    // Check if the latest trade is unpaid
+    if (latestTrade.isPaid) {
+      return res.status(400).json({ status: 'error', message: 'Latest trade is already marked as paid.' });
+    }
 
     // Update the latest trade with the provided name and amountPaid
-    const tradeToUpdate = assignedTrades[staffToUpdate.tradeIndex];
-    tradeToUpdate.name = name;
-    tradeToUpdate.amountPaid = amountPaid;
+    latestTrade.name = name;
+    latestTrade.amountPaid = amountPaid;
 
     // Save the updated assignedTrades array back to Firestore
+    assignedTrades[latestTradeIndex] = latestTrade; // Replace the old trade with the updated one
     await staffRef.update({ assignedTrades });
 
     res.json({
       status: 'success',
-      message: `Latest trade updated successfully: name = ${name}, amountPaid = ${amountPaid}.`
+      message: `Latest trade for staff ${staffId} updated successfully: name = ${name}, amountPaid = ${amountPaid}.`
     });
   } catch (error) {
     console.error('Error updating trade details:', error);
     res.status(500).json({ status: 'error', message: 'Failed to update trade details.', error });
   }
 });
+
 
 
 //Manual Assignment 
