@@ -536,6 +536,7 @@ router.post('/trade/mark', async (req, res) => {
 
     // Save the updated assignedTrades array back to Firestore
     await staffRef.update({ assignedTrades });
+    await assignUnassignedTrade();
 
     res.json({
       status: 'success',
