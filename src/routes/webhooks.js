@@ -491,6 +491,7 @@ router.get('/staff/:staffId/history', async (req, res) => {
 });
 
 
+
 router.post('/trade/mark', async (req, res) => {
   const { markedAt, trade_hash, name, amountPaid } = req.body;
 
@@ -500,18 +501,18 @@ router.post('/trade/mark', async (req, res) => {
 
     staffSnapshot.docs.forEach(doc => {
       const staffData = doc.data();
-      if (staffData.assignedTrades && staffData.assignedTrades.length > 0) {
-        // Get the latest assigned trade
-        const latestTradeIndex = staffData.assignedTrades.length - 1;
+      const tradeIndex = staffData.assignedTrades.findIndex(trade => trade.trade_hash === trade_hash);
+
+      if (tradeIndex !== -1) {
         staffToUpdate = {
           docId: doc.id,
-          tradeIndex: latestTradeIndex
+          tradeIndex
         };
       }
     });
 
     if (!staffToUpdate) {
-      return res.status(404).json({ status: 'error', message: 'No assigned trades found for staff.' });
+      return res.status(404).json({ status: 'error', message: 'Trade not found.' });
     }
 
     // Reference the staff document
@@ -519,12 +520,13 @@ router.post('/trade/mark', async (req, res) => {
     const staffDoc = await staffRef.get();
     const assignedTrades = staffDoc.data().assignedTrades;
 
-    // Update the latest trade with the provided markedAt and isPaid fields
     const tradeToUpdate = assignedTrades[staffToUpdate.tradeIndex];
+
+    // Update isPaid and markedAt fields
     tradeToUpdate.isPaid = true;
     tradeToUpdate.markedAt = markedAt;
 
-    // If name or amountPaid are provided, update them (if not already present)
+    // If name or amountPaid are provided, only update them if they don't already exist
     if (name && !tradeToUpdate.name) {
       tradeToUpdate.name = name;
     }
@@ -537,13 +539,14 @@ router.post('/trade/mark', async (req, res) => {
 
     res.json({
       status: 'success',
-      message: `Trade marked as paid successfully with markedAt: ${markedAt}.`
+      message: `Trade marked as paid successfully with markedAt time: ${markedAt}.`
     });
   } catch (error) {
     console.error('Error marking trade as paid:', error);
     res.status(500).json({ status: 'error', message: 'Failed to mark trade as paid.', error });
   }
 });
+
 
 
 //Update dEtails 
