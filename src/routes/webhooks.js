@@ -477,7 +477,8 @@ router.get('/staff/:staffId/history', async (req, res) => {
         fiat_amount_requested: trade.fiat_amount_requested,
         amountPaid: trade.amountPaid,
         markedAt: trade.markedAt,
-        name:trade.name
+        name:trade.name,
+        assignedAt: trade.assignedAt
       }));
 
     res.json({
