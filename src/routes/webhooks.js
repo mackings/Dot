@@ -627,23 +627,47 @@ router.get('/staff/trade-statistics', async (req, res) => {
       const paidTrades = assignedTrades.filter(trade => trade.isPaid).length;
       const unpaidTrades = totalAssignedTrades - paidTrades;
 
-      // Step 5: Calculate the average speed (time between assigned and paid)
-      const paidSpeeds = assignedTrades
-        .filter(trade => trade.isPaid && trade.assignedAt && trade.markedAt)
-        .map(trade => {
-          const assignedAt = trade.assignedAt.toDate ? trade.assignedAt.toDate() : null;
-          const markedAt = trade.markedAt.toDate ? trade.markedAt.toDate() : null;
-          
-          if (assignedAt && markedAt) {
-            return (markedAt - assignedAt) / (1000 * 60); // Speed in minutes
-          }
-          return null;
-        })
-        .filter(speed => speed !== null); // Filter out null values
+      // Step 5: Calculate the average speed (now in seconds) and derive performance score
+      let totalSpeed = 0; // Total speed in seconds
+      let totalAccuracy = 0;
+      let tradeCountWithSpeed = 0;
 
-      const averageSpeed = paidSpeeds.length > 0
-        ? (paidSpeeds.reduce((a, b) => a + b, 0) / paidSpeeds.length)
-        : 'No trades marked as paid';
+      assignedTrades.forEach(trade => {
+        const assignedAt = trade.assignedAt ? trade.assignedAt.toDate() : null;
+        const markedAt = trade.markedAt;
+
+        // Handle markedAt as string "9" (speed in seconds) or "Automatic"
+        if (trade.isPaid && assignedAt && markedAt) {
+          if (!isNaN(markedAt)) {
+            // Directly use the numeric value in seconds
+            totalSpeed += parseInt(markedAt); // Here "markedAt" represents seconds
+            tradeCountWithSpeed++;
+          } else if (markedAt === "Automatic") {
+            // Assign a default value for automatic marks (e.g., 0 seconds for instant)
+            totalSpeed += 0;
+            tradeCountWithSpeed++;
+          }
+        }
+
+        // Calculate accuracy by comparing amountPaid and fiat_amount_requested
+        if (trade.amountPaid && trade.fiat_amount_requested) {
+          const accuracy = Math.min(trade.amountPaid / trade.fiat_amount_requested, 1); // Ensure max is 100%
+          totalAccuracy += accuracy;
+        }
+      });
+
+      const averageSpeed = tradeCountWithSpeed > 0 
+        ? totalSpeed / tradeCountWithSpeed // Average speed in seconds
+        : "No trades marked as paid";
+        
+      const accuracyScore = totalAssignedTrades > 0 
+        ? (totalAccuracy / totalAssignedTrades) * 100 // Accuracy as percentage
+        : 0;
+
+      // Calculate a performance score based on trades, accuracy, and speed
+      const performanceScore = (accuracyScore * 0.5) // Accuracy weighs 50%
+                             + ((paidTrades / totalAssignedTrades) * 0.3) // Paid trades ratio weighs 30%
+                             + ((1 / (averageSpeed || 1)) * 0.2); // Speed weighs 20% (faster = better)
 
       // Step 6: Compile all statistics for the current staff
       staffData.push({
@@ -651,7 +675,9 @@ router.get('/staff/trade-statistics', async (req, res) => {
         totalAssignedTrades,
         paidTrades,
         unpaidTrades,
-        averageSpeed,
+        averageSpeed: averageSpeed === "No trades marked as paid" ? averageSpeed : `${averageSpeed} seconds`,
+        accuracyScore: accuracyScore.toFixed(2) + '%',  // Accuracy as percentage
+        performanceScore: performanceScore.toFixed(2)   // Overall performance score
       });
     }
 
