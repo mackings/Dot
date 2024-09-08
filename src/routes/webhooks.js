@@ -492,8 +492,6 @@ router.get('/staff/:staffId/history', async (req, res) => {
 });
 
 
-
-
 router.post('/trade/mark', async (req, res) => {
   const { markedAt, trade_hash, name, amountPaid } = req.body;
 
@@ -603,12 +601,73 @@ router.post('/trade/update', async (req, res) => {
   }
 });
 
-
-
-
-
 //Manual Assignment 
 router.post('/assign/manual', assignTradesToStaffManually);
+
+// Statistics 
+
+router.get('/staff/trade-statistics', async (req, res) => {
+  try {
+    // Step 1: Get the count of all unassigned trades
+    const unassignedTradesSnapshot = await db.collection('unassignedTrades').get();
+    const totalUnassignedTrades = unassignedTradesSnapshot.size;
+
+    // Step 2: Fetch all staff data
+    const staffSnapshot = await db.collection('staff').get();
+    const staffData = [];
+
+    for (const staffDoc of staffSnapshot.docs) {
+      const staff = staffDoc.data();
+      const assignedTrades = staff.assignedTrades || [];
+
+      // Step 3: Calculate the total assigned trades
+      const totalAssignedTrades = assignedTrades.length;
+
+      // Step 4: Calculate the number of paid and unpaid trades
+      const paidTrades = assignedTrades.filter(trade => trade.isPaid).length;
+      const unpaidTrades = totalAssignedTrades - paidTrades;
+
+      // Step 5: Calculate the average speed (time between assigned and paid)
+      const paidSpeeds = assignedTrades
+        .filter(trade => trade.isPaid && trade.assignedAt && trade.markedAt)
+        .map(trade => {
+          const assignedAt = trade.assignedAt.toDate();
+          const markedAt = trade.markedAt.toDate();
+          return (markedAt - assignedAt) / (1000 * 60); // Speed in minutes
+        });
+
+      const averageSpeed = paidSpeeds.length > 0
+        ? (paidSpeeds.reduce((a, b) => a + b, 0) / paidSpeeds.length)
+        : 'No trades marked as paid';
+
+      // Step 6: Compile all statistics for the current staff
+      staffData.push({
+        staffId: staffDoc.id,
+        totalAssignedTrades,
+        paidTrades,
+        unpaidTrades,
+        averageSpeed,
+      });
+    }
+
+    // Step 7: Send the response
+    res.status(200).json({
+      status: 'success',
+      data: {
+        totalUnassignedTrades,
+        staffStatistics: staffData,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching trade statistics:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch trade statistics.',
+      error: error.message,
+    });
+  }
+});
+
 
 
 router.post('/paxful/webhook', async (req, res) => {
