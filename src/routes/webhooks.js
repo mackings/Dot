@@ -457,7 +457,6 @@ router.post('/paxful/pay', async (req, res) => {
 //Transactions
 
 router.get('/staff/:staffId/history', async (req, res) => {
-
   const { staffId } = req.params;
 
   try {
@@ -470,16 +469,16 @@ router.get('/staff/:staffId/history', async (req, res) => {
 
     const assignedTrades = staffDoc.data().assignedTrades;
 
-    // Filter out paid trades to create transaction history
+    // Include all trades, regardless of whether they're paid or unpaid, to show updates
     const transactionHistory = assignedTrades
-      .filter(trade => trade.isPaid)
       .map(trade => ({
         trade_hash: trade.trade_hash,
         fiat_amount_requested: trade.fiat_amount_requested,
-        amountPaid: trade.amountPaid,
-        markedAt: trade.markedAt,
-        name:trade.name,
-        assignedAt: trade.assignedAt
+        amountPaid: trade.amountPaid || 'Pending',  // Show "Pending" if no amount is set
+        markedAt: trade.markedAt || 'Not Marked',
+        name: trade.name || 'No Name',
+        assignedAt: trade.assignedAt,
+        isPaid: trade.isPaid || false  // Flag to show whether the trade is paid
       }));
 
     res.json({
@@ -491,6 +490,7 @@ router.get('/staff/:staffId/history', async (req, res) => {
     res.status(500).json({ status: 'error', message: 'Failed to fetch transaction history.', error });
   }
 });
+
 
 
 
@@ -555,7 +555,7 @@ router.post('/trade/mark', async (req, res) => {
 //Update dEtails 
 
 router.post('/trade/update', async (req, res) => {
-  const { staffId, name, amountPaid } = req.body; // Accept staffId and amountPaid in the request
+  const { staffId, name, amountPaid } = req.body;
 
   try {
     // Fetch the specific staff document by staffId
@@ -566,37 +566,33 @@ router.post('/trade/update', async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'Staff not found.' });
     }
 
-    const staffData = staffDoc.data();
-    let assignedTrades = staffData.assignedTrades || [];
+    let assignedTrades = staffDoc.data().assignedTrades || [];
 
-    // Check if the staff has any assigned trades
+    // Check if there are any trades assigned to this staff
     if (assignedTrades.length === 0) {
       return res.status(404).json({ status: 'error', message: 'No trades assigned to this staff.' });
     }
 
-    // Find the trade that matches the amountPaid, if any
-    let tradeToUpdate = assignedTrades.find(trade => trade.amountPaid === amountPaid);
+    // Find the trade by amountPaid or the first trade without a name
+    let tradeToUpdate = assignedTrades.find(trade => trade.amountPaid === amountPaid) || 
+                        assignedTrades.find(trade => !trade.name);
 
     if (!tradeToUpdate) {
-      // If no trade with matching amountPaid is found, find the first trade to update
-      tradeToUpdate = assignedTrades.find(trade => !trade.name || trade.amountPaid === undefined);
-
-      if (!tradeToUpdate) {
-        return res.status(404).json({ status: 'error', message: 'No trade available to update.' });
-      }
+      return res.status(404).json({ status: 'error', message: 'No trade available to update.' });
     }
 
     // Update the trade details
     const tradeIndex = assignedTrades.indexOf(tradeToUpdate);
     assignedTrades[tradeIndex] = {
       ...tradeToUpdate,
-      name: name || tradeToUpdate.name, // Update name if provided, otherwise keep existing
-      amountPaid: amountPaid || tradeToUpdate.amountPaid // Update amountPaid if provided, otherwise keep existing
+      name: name || tradeToUpdate.name,  // Update name if provided, else keep existing
+      amountPaid: amountPaid || tradeToUpdate.amountPaid,  // Update amountPaid if provided
     };
 
-    // Save the updated assignedTrades array back to Firestore
+    // Immediately update the assigned trades in Firestore
     await staffRef.update({ assignedTrades });
 
+    // Return a successful response
     res.json({
       status: 'success',
       message: `Trade updated successfully: name = ${name || tradeToUpdate.name}, amountPaid = ${amountPaid || tradeToUpdate.amountPaid}.`
@@ -606,6 +602,7 @@ router.post('/trade/update', async (req, res) => {
     res.status(500).json({ status: 'error', message: 'Failed to update trade details.', error });
   }
 });
+
 
 
 
