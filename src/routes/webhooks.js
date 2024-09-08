@@ -555,7 +555,7 @@ router.post('/trade/mark', async (req, res) => {
 //Update dEtails 
 
 router.post('/trade/update', async (req, res) => {
-  const { staffId, name, amountPaid } = req.body; // Accept staffId in the request
+  const { staffId, name, amountPaid } = req.body; // Accept staffId and amountPaid in the request
 
   try {
     // Fetch the specific staff document by staffId
@@ -567,39 +567,46 @@ router.post('/trade/update', async (req, res) => {
     }
 
     const staffData = staffDoc.data();
-    const assignedTrades = staffData.assignedTrades;
+    let assignedTrades = staffData.assignedTrades || [];
 
     // Check if the staff has any assigned trades
-    if (!assignedTrades || assignedTrades.length === 0) {
+    if (assignedTrades.length === 0) {
       return res.status(404).json({ status: 'error', message: 'No trades assigned to this staff.' });
     }
 
-    // Get the latest assigned trade
-    const latestTradeIndex = assignedTrades.length - 1;
-    const latestTrade = assignedTrades[latestTradeIndex];
+    // Find the trade that matches the amountPaid, if any
+    let tradeToUpdate = assignedTrades.find(trade => trade.amountPaid === amountPaid);
 
-    // Check if the latest trade is unpaid
-    if (latestTrade.isPaid) {
-      return res.status(400).json({ status: 'error', message: 'Latest trade is already marked as paid.' });
+    if (!tradeToUpdate) {
+      // If no trade with matching amountPaid is found, find the first trade to update
+      tradeToUpdate = assignedTrades.find(trade => !trade.name || trade.amountPaid === undefined);
+
+      if (!tradeToUpdate) {
+        return res.status(404).json({ status: 'error', message: 'No trade available to update.' });
+      }
     }
 
-    // Update the latest trade with the provided name and amountPaid
-    latestTrade.name = name;
-    latestTrade.amountPaid = amountPaid;
+    // Update the trade details
+    const tradeIndex = assignedTrades.indexOf(tradeToUpdate);
+    assignedTrades[tradeIndex] = {
+      ...tradeToUpdate,
+      name: name || tradeToUpdate.name, // Update name if provided, otherwise keep existing
+      amountPaid: amountPaid || tradeToUpdate.amountPaid // Update amountPaid if provided, otherwise keep existing
+    };
 
     // Save the updated assignedTrades array back to Firestore
-    assignedTrades[latestTradeIndex] = latestTrade; // Replace the old trade with the updated one
     await staffRef.update({ assignedTrades });
 
     res.json({
       status: 'success',
-      message: `Latest trade for staff ${staffId} updated successfully: name = ${name}, amountPaid = ${amountPaid}.`
+      message: `Trade updated successfully: name = ${name || tradeToUpdate.name}, amountPaid = ${amountPaid || tradeToUpdate.amountPaid}.`
     });
   } catch (error) {
     console.error('Error updating trade details:', error);
     res.status(500).json({ status: 'error', message: 'Failed to update trade details.', error });
   }
 });
+
 
 
 
