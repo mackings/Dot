@@ -631,10 +631,15 @@ router.get('/staff/trade-statistics', async (req, res) => {
       const paidSpeeds = assignedTrades
         .filter(trade => trade.isPaid && trade.assignedAt && trade.markedAt)
         .map(trade => {
-          const assignedAt = trade.assignedAt.toDate();
-          const markedAt = trade.markedAt.toDate();
-          return (markedAt - assignedAt) / (1000 * 60); // Speed in minutes
-        });
+          const assignedAt = trade.assignedAt.toDate ? trade.assignedAt.toDate() : null;
+          const markedAt = trade.markedAt.toDate ? trade.markedAt.toDate() : null;
+          
+          if (assignedAt && markedAt) {
+            return (markedAt - assignedAt) / (1000 * 60); // Speed in minutes
+          }
+          return null;
+        })
+        .filter(speed => speed !== null); // Filter out null values
 
       const averageSpeed = paidSpeeds.length > 0
         ? (paidSpeeds.reduce((a, b) => a + b, 0) / paidSpeeds.length)
