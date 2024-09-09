@@ -771,7 +771,7 @@ const staffStats = {
     const overallMispayment = totalGlobalFiatRequested - totalGlobalAmountPaid;
 
     // Step 8: Save or update total unassigned trades in MongoDB
-    await totalUnassignedTrades.findOneAndUpdate(
+    await UnassignedTrades.findOneAndUpdate(
       {},
       { totalUnassignedTrades, lastUpdated: new Date() },
       { upsert: true, new: true }
