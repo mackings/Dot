@@ -640,7 +640,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
     // Step 1: Check MongoDB for cached data
     const cachedStaffData = await TradeStatistics.find();
     const cachedUnassignedTrades = await UnassignedTrades.findOne();
-    const cacheExpiry = 3 * 60 * 60 * 1000; // Cache expires in 3 hours
+    const cacheExpiry = 5 * 60 * 1000; // Cache expires in 5 minutes
     const currentTime = Date.now();
 
     if (
@@ -703,7 +703,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
       });
 
       const averageSpeed = tradeCountWithSpeed > 0 
-        ? totalSpeed / tradeCountWithSpeed 
+        ? (totalSpeed / tradeCountWithSpeed).toFixed(1) // Round to one decimal place
         : 'No trades marked as paid';
         
       const accuracyScore = totalAssignedTrades > 0 
@@ -760,7 +760,6 @@ router.get('/staff/trade-statistics', async (req, res) => {
     });
   }
 });
-
 
 
 
