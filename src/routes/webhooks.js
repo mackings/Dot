@@ -666,7 +666,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
     const totalUnassignedTrades = unassignedTradesSnapshot.size;
 
     const staffSnapshot = await db.collection('staff')
-      .limit(10) // Adjust to limit reads
+      .limit(500) // Adjust to limit reads
       .get();
 
     const staffData = [];
@@ -687,8 +687,8 @@ router.get('/staff/trade-statistics', async (req, res) => {
       let totalSpeed = 0;
       let totalAccuracy = 0;
       let tradeCountWithSpeed = 0;
-      let staffFiatRequested = 0;
-      let staffAmountPaid = 0;
+      let staffFiatRequested = 0;  // Sum of all fiat_amount_requested
+      let staffAmountPaid = 0;     // Sum of all amountPaid
 
       assignedTrades.forEach(trade => {
         const assignedAt = trade.assignedAt ? trade.assignedAt.toDate() : null;
@@ -699,15 +699,15 @@ router.get('/staff/trade-statistics', async (req, res) => {
           totalSpeed += parseInt(markedAt);
           tradeCountWithSpeed++;
 
-          // Add to staff's fiat requested and amount paid for mispayment calculation
+          // Convert fiat_amount_requested and amountPaid to float and sum them up
           if (trade.fiat_amount_requested && trade.amountPaid) {
-            staffFiatRequested += parseInt(trade.fiat_amount_requested, 10); // Convert string to int
-            staffAmountPaid += parseInt(trade.amountPaid, 10); // Convert string to int
+            staffFiatRequested += parseFloat(trade.fiat_amount_requested);  // Convert to float
+            staffAmountPaid += parseFloat(trade.amountPaid);                // Convert to float
           }
 
           // Calculate accuracy for each trade
           if (trade.amountPaid && trade.fiat_amount_requested) {
-            const accuracy = Math.min(parseInt(trade.amountPaid, 10) / parseInt(trade.fiat_amount_requested, 10), 1);
+            const accuracy = Math.min(parseFloat(trade.amountPaid) / parseFloat(trade.fiat_amount_requested), 1);
             totalAccuracy += accuracy;
           }
         }
@@ -727,8 +727,8 @@ router.get('/staff/trade-statistics', async (req, res) => {
                              + ((paidTrades / totalAssignedTrades) * 0.3) 
                              + ((1 / (averageSpeed || 1)) * 0.2);
 
-      // Calculate mispayment for each staff
-      const staffMispayment = staffFiatRequested - staffAmountPaid;
+      // Convert mispayment to thousands
+      const staffMispayment = ((staffFiatRequested - staffAmountPaid) / 1000).toFixed(2);  // Divide by 1000 for thousands
 
       const staffStats = {
         staffId: staffDoc.id,
@@ -739,9 +739,9 @@ router.get('/staff/trade-statistics', async (req, res) => {
         accuracyScore: accuracyScore.toFixed(2) + '%',
         performanceScore: performanceScore.toFixed(2),
         mispayment: {
-          expectedTotal: staffFiatRequested,
-          actualTotal: staffAmountPaid,
-          difference: staffMispayment
+          expectedTotal: (staffFiatRequested / 1000).toFixed(2), // Convert to thousands
+          actualTotal: (staffAmountPaid / 1000).toFixed(2),      // Convert to thousands
+          difference: staffMispayment                            // Mispayment in thousands
         },
         lastUpdated: new Date() // Update cache time
       };
@@ -781,6 +781,9 @@ router.get('/staff/trade-statistics', async (req, res) => {
     });
   }
 });
+
+
+
 
 
 
