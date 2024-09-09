@@ -640,7 +640,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
     // Step 1: Check MongoDB for cached data
     const cachedStaffData = await TradeStatistics.find();
     const cachedUnassignedTrades = await UnassignedTrades.findOne();
-    const cacheExpiry = 1 * 60 * 1000; // Cache expires in 1 minute
+    const cacheExpiry = 5 * 60 * 1000; // Cache expires in 5 minutes
     const currentTime = Date.now();
 
     if (
@@ -670,6 +670,8 @@ router.get('/staff/trade-statistics', async (req, res) => {
       .get();
 
     const staffData = [];
+    let overallTotalFiatRequested = 0;
+    let overallTotalAmountPaid = 0;
 
     for (const staffDoc of staffSnapshot.docs) {
       const staff = staffDoc.data();
@@ -678,6 +680,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
 
       // Initialize tracking variables
       const paidTrades = assignedTrades.filter(trade => {
+        // Only count trades where markedAt is between "0" and "100" and it has a name object
         return typeof trade.markedAt === 'string' && trade.name && 
                !isNaN(trade.markedAt) && trade.markedAt !== 'Automatic';
       }).length;
@@ -687,8 +690,9 @@ router.get('/staff/trade-statistics', async (req, res) => {
       let totalSpeed = 0;
       let totalAccuracy = 0;
       let tradeCountWithSpeed = 0;
-      let staffFiatRequested = 0;  // Sum of all fiat_amount_requested
-      let staffAmountPaid = 0;     // Sum of all amountPaid
+
+      let totalFiatRequested = 0;
+      let totalAmountPaid = 0;
 
       assignedTrades.forEach(trade => {
         const assignedAt = trade.assignedAt ? trade.assignedAt.toDate() : null;
@@ -699,10 +703,10 @@ router.get('/staff/trade-statistics', async (req, res) => {
           totalSpeed += parseInt(markedAt);
           tradeCountWithSpeed++;
 
-          // Convert fiat_amount_requested and amountPaid to float and sum them up
+          // Add to total fiat requested and amount paid for mispayment calculation
           if (trade.fiat_amount_requested && trade.amountPaid) {
-            staffFiatRequested += parseFloat(trade.fiat_amount_requested);  // Convert to float
-            staffAmountPaid += parseFloat(trade.amountPaid);                // Convert to float
+            totalFiatRequested += parseFloat(trade.fiat_amount_requested);
+            totalAmountPaid += parseFloat(trade.amountPaid);
           }
 
           // Calculate accuracy for each trade
@@ -727,8 +731,8 @@ router.get('/staff/trade-statistics', async (req, res) => {
                              + ((paidTrades / totalAssignedTrades) * 0.3) 
                              + ((1 / (averageSpeed || 1)) * 0.2);
 
-      // Convert mispayment to thousands
-      const staffMispayment = ((staffFiatRequested - staffAmountPaid) / 1000).toFixed(2);  // Divide by 1000 for thousands
+      // Calculate mispayment
+      const mispayment = totalFiatRequested - totalAmountPaid;
 
       const staffStats = {
         staffId: staffDoc.id,
@@ -738,11 +742,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
         averageSpeed: averageSpeed === 'No trades marked as paid' ? averageSpeed : `${averageSpeed} seconds`,
         accuracyScore: accuracyScore.toFixed(2) + '%',
         performanceScore: performanceScore.toFixed(2),
-        mispayment: {
-          expectedTotal: (staffFiatRequested / 1000).toFixed(2), // Convert to thousands
-          actualTotal: (staffAmountPaid / 1000).toFixed(2),      // Convert to thousands
-          difference: staffMispayment                            // Mispayment in thousands
-        },
+        mispayment: mispayment.toFixed(2), // Add mispayment to each staff object
         lastUpdated: new Date() // Update cache time
       };
 
@@ -754,6 +754,10 @@ router.get('/staff/trade-statistics', async (req, res) => {
         staffStats,
         { upsert: true, new: true }
       );
+
+      // Update overall totals for mispayment calculation
+      overallTotalFiatRequested += totalFiatRequested;
+      overallTotalAmountPaid += totalAmountPaid;
     }
 
     // Step 5: Save or update total unassigned trades in MongoDB
@@ -768,7 +772,12 @@ router.get('/staff/trade-statistics', async (req, res) => {
       status: 'success',
       data: {
         totalUnassignedTrades,
-        staffStatistics: staffData
+        staffStatistics: staffData,
+        mispayment: {
+          expectedTotal: overallTotalFiatRequested.toFixed(2),
+          actualTotal: overallTotalAmountPaid.toFixed(2),
+          difference: (overallTotalFiatRequested - overallTotalAmountPaid).toFixed(2)
+        }
       }
     });
 
@@ -781,9 +790,6 @@ router.get('/staff/trade-statistics', async (req, res) => {
     });
   }
 });
-
-
-
 
 
 
