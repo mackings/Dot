@@ -727,21 +727,21 @@ router.get('/staff/trade-statistics', async (req, res) => {
       const staffMispayment = totalFiatRequested - totalAmountPaid;
 
       // Step 5: Construct staff statistics object
-      const staffStats = {
-        staffId: staffDoc.id,
-        totalAssignedTrades,
-        paidTrades,
-        unpaidTrades,
-        averageSpeed: averageSpeed === 'No trades marked as paid' ? averageSpeed : `${averageSpeed} seconds`,
-        accuracyScore: accuracyScore.toFixed(2) + '%',
-        performanceScore: performanceScore.toFixed(2),
-        mispayment: {
-          expectedTotal: totalFiatRequested.toFixed(2),
-          actualTotal: totalAmountPaid.toFixed(2),
-          difference: staffMispayment.toFixed(2)
-        },
-        lastUpdated: new Date() // Update cache time
-      };
+const staffStats = {
+  staffId: staffDoc.id,
+  totalAssignedTrades,
+  paidTrades,
+  unpaidTrades,
+  averageSpeed: averageSpeed === 'No trades marked as paid' ? averageSpeed : `${averageSpeed} seconds`,
+  accuracyScore: accuracyScore.toFixed(2) + '%',
+  performanceScore: performanceScore.toFixed(2),
+  mispayment: {
+    expectedTotal: totalFiatRequested.toFixed(2),
+    actualTotal: totalAmountPaid.toFixed(2),
+    difference: staffMispayment.toFixed(2)
+  },
+  lastUpdated: new Date() // Update cache time
+};
       
       // Accumulate global totals for overall mispayment
       totalGlobalFiatRequested += totalFiatRequested;
@@ -750,7 +750,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
       staffData.push(staffStats);
 
       // Step 6: Save or update staff statistics in MongoDB
-      await TradeStatistics.findOneAndUpdate(
+      await TradeStatisticsSchema.findOneAndUpdate(
         { staffId: staffDoc.id },
         { $set: staffStats },
         { upsert: true, new: true, overwrite: true } // Ensure document is fully updated
