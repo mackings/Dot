@@ -767,6 +767,7 @@ const staffStats = {
       );
     }
 
+    
     // Step 7: Calculate overall mispayment
     const overallMispayment = totalGlobalFiatRequested - totalGlobalAmountPaid;
 
