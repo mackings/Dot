@@ -49,16 +49,13 @@ const TradeStatisticsSchema = new mongoose.Schema({
   averageSpeed: String,
   accuracyScore: String,
   performanceScore: String,
+  mispayment: {
+    expectedTotal: String,  // Store as string to match your current data format
+    actualTotal: String,
+    difference: String
+  },
   lastUpdated: { type: Date, default: Date.now }
 });
-
-const UnassignedTradesSchema = new mongoose.Schema({
-  totalUnassignedTrades: Number,
-  lastUpdated: { type: Date, default: Date.now }
-});
-
-const TradeStatistics = mongoose.model('TradeStatistics', TradeStatisticsSchema);
-const UnassignedTrades = mongoose.model('UnassignedTrades', UnassignedTradesSchema);
 
 const db = admin.firestore();
 
@@ -764,7 +761,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
     const overallMispayment = totalGlobalFiatRequested - totalGlobalAmountPaid;
 
     // Step 8: Save or update total unassigned trades in MongoDB
-    await UnassignedTrades.findOneAndUpdate(
+    await totalUnassignedTrades.findOneAndUpdate(
       {},
       { totalUnassignedTrades, lastUpdated: new Date() },
       { upsert: true, new: true }
