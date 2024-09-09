@@ -679,20 +679,19 @@ router.get('/staff/trade-statistics', async (req, res) => {
       const totalAssignedTrades = assignedTrades.length;
 
       // Initialize tracking variables
+      const paidTrades = assignedTrades.filter(trade => {
+        return typeof trade.markedAt === 'string' && trade.name &&
+               !isNaN(trade.markedAt) && trade.markedAt !== 'Automatic';
+      }).length;
+
+      const unpaidTrades = totalAssignedTrades - paidTrades;
+
       let totalSpeed = 0;
       let totalAccuracy = 0;
       let tradeCountWithSpeed = 0;
-      let staffFiatRequested = 0;
-      let staffAmountPaid = 0;
-
-      const paidTrades = assignedTrades.filter(trade => {
-        return typeof trade.markedAt === 'string' && trade.name && 
-               !isNaN(trade.markedAt) && trade.markedAt !== 'Automatic';
-      }).length;
-      
-      const unpaidTrades = totalAssignedTrades - paidTrades;
 
       assignedTrades.forEach(trade => {
+        const assignedAt = trade.assignedAt ? trade.assignedAt.toDate() : null;
         const markedAt = trade.markedAt;
 
         if (typeof markedAt === 'string' && trade.name && !isNaN(markedAt) && markedAt !== 'Automatic') {
@@ -700,8 +699,8 @@ router.get('/staff/trade-statistics', async (req, res) => {
           tradeCountWithSpeed++;
 
           if (trade.fiat_amount_requested && trade.amountPaid) {
-            staffFiatRequested += parseFloat(trade.fiat_amount_requested);
-            staffAmountPaid += parseFloat(trade.amountPaid);
+            totalFiatRequested += parseFloat(trade.fiat_amount_requested);
+            totalAmountPaid += parseFloat(trade.amountPaid);
           }
 
           if (trade.amountPaid && trade.fiat_amount_requested) {
@@ -711,19 +710,19 @@ router.get('/staff/trade-statistics', async (req, res) => {
         }
       });
 
-      const averageSpeed = tradeCountWithSpeed > 0 
-        ? (totalSpeed / tradeCountWithSpeed).toFixed(1) 
+      const averageSpeed = tradeCountWithSpeed > 0
+        ? (totalSpeed / tradeCountWithSpeed).toFixed(1) // Round to one decimal place
         : 'No trades marked as paid';
         
-      const accuracyScore = totalAssignedTrades > 0 
-        ? (totalAccuracy / totalAssignedTrades) * 100 
+      const accuracyScore = totalAssignedTrades > 0
+        ? (totalAccuracy / totalAssignedTrades) * 100
         : 0;
 
       const performanceScore = (accuracyScore * 0.5) 
                              + ((paidTrades / totalAssignedTrades) * 0.3) 
                              + ((1 / (averageSpeed || 1)) * 0.2);
 
-      const staffMispayment = staffFiatRequested - staffAmountPaid;
+      const staffMispayment = totalFiatRequested - totalAmountPaid;
 
       const staffStats = {
         staffId: staffDoc.id,
@@ -734,11 +733,11 @@ router.get('/staff/trade-statistics', async (req, res) => {
         accuracyScore: accuracyScore.toFixed(2) + '%',
         performanceScore: performanceScore.toFixed(2),
         mispayment: {
-          expectedTotal: staffFiatRequested.toFixed(2),
-          actualTotal: staffAmountPaid.toFixed(2),
+          expectedTotal: totalFiatRequested > 0 ? totalFiatRequested.toFixed(2) : '0.00',
+          actualTotal: totalAmountPaid > 0 ? totalAmountPaid.toFixed(2) : '0.00',
           difference: staffMispayment.toFixed(2)
         },
-        lastUpdated: new Date() 
+        lastUpdated: new Date() // Update cache time
       };
 
       staffData.push(staffStats);
@@ -751,19 +750,29 @@ router.get('/staff/trade-statistics', async (req, res) => {
       );
     }
 
+    // Step 5: Calculate overall mispayment
     const overallMispayment = totalFiatRequested - totalAmountPaid;
 
+    // Step 6: Save or update total unassigned trades in MongoDB
     await UnassignedTrades.findOneAndUpdate(
       {},
       { totalUnassignedTrades, lastUpdated: new Date() },
       { upsert: true, new: true }
     );
 
+    // Step 7: Return the newly fetched data
     res.status(200).json({
       status: 'success',
       data: {
         totalUnassignedTrades,
-        staffStatistics: staffData,
+        staffStatistics: staffData.map(staff => ({
+          ...staff,
+          mispayment: staff.mispayment || {
+            expectedTotal: '0.00',
+            actualTotal: '0.00',
+            difference: '0.00'
+          }
+        })),
         mispayment: {
           expectedTotal: totalFiatRequested.toFixed(2),
           actualTotal: totalAmountPaid.toFixed(2),
