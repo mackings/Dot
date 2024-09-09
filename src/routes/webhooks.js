@@ -670,12 +670,21 @@ router.get('/staff/trade-statistics', async (req, res) => {
       .get();
 
     const staffData = [];
+    let totalFiatRequested = 0;
+    let totalAmountPaid = 0;
 
     for (const staffDoc of staffSnapshot.docs) {
       const staff = staffDoc.data();
       const assignedTrades = staff.assignedTrades || [];
       const totalAssignedTrades = assignedTrades.length;
-      const paidTrades = assignedTrades.filter(trade => trade.isPaid).length;
+
+      // Initialize tracking variables
+      const paidTrades = assignedTrades.filter(trade => {
+        // Only count trades where markedAt is between "0" and "100" and it has a name object
+        return typeof trade.markedAt === 'string' && trade.name && 
+               !isNaN(trade.markedAt) && trade.markedAt !== 'Automatic';
+      }).length;
+      
       const unpaidTrades = totalAssignedTrades - paidTrades;
 
       let totalSpeed = 0;
@@ -686,22 +695,26 @@ router.get('/staff/trade-statistics', async (req, res) => {
         const assignedAt = trade.assignedAt ? trade.assignedAt.toDate() : null;
         const markedAt = trade.markedAt;
 
-        if (trade.isPaid && assignedAt && markedAt) {
-          if (!isNaN(markedAt)) {
-            totalSpeed += parseInt(markedAt);
-            tradeCountWithSpeed++;
-          } else if (markedAt === 'Automatic') {
-            totalSpeed += 0;
-            tradeCountWithSpeed++;
-          }
-        }
+        // Use only trades with markedAt as number strings, excluding "Automatic"
+        if (typeof markedAt === 'string' && trade.name && !isNaN(markedAt) && markedAt !== 'Automatic') {
+          totalSpeed += parseInt(markedAt);
+          tradeCountWithSpeed++;
 
-        if (trade.amountPaid && trade.fiat_amount_requested) {
-          const accuracy = Math.min(trade.amountPaid / trade.fiat_amount_requested, 1);
-          totalAccuracy += accuracy;
+          // Add to total fiat requested and amount paid for mispayment calculation
+          if (trade.fiat_amount_requested && trade.amountPaid) {
+            totalFiatRequested += trade.fiat_amount_requested;
+            totalAmountPaid += trade.amountPaid;
+          }
+
+          // Calculate accuracy for each trade
+          if (trade.amountPaid && trade.fiat_amount_requested) {
+            const accuracy = Math.min(trade.amountPaid / trade.fiat_amount_requested, 1);
+            totalAccuracy += accuracy;
+          }
         }
       });
 
+      // Calculate average speed and accuracy
       const averageSpeed = tradeCountWithSpeed > 0 
         ? (totalSpeed / tradeCountWithSpeed).toFixed(1) // Round to one decimal place
         : 'No trades marked as paid';
@@ -710,6 +723,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
         ? (totalAccuracy / totalAssignedTrades) * 100 
         : 0;
 
+      // Calculate performance score
       const performanceScore = (accuracyScore * 0.5) 
                              + ((paidTrades / totalAssignedTrades) * 0.3) 
                              + ((1 / (averageSpeed || 1)) * 0.2);
@@ -735,19 +749,27 @@ router.get('/staff/trade-statistics', async (req, res) => {
       );
     }
 
-    // Step 5: Save or update total unassigned trades in MongoDB
+    // Step 5: Calculate mispayment
+    const mispayment = totalFiatRequested - totalAmountPaid;
+
+    // Step 6: Save or update total unassigned trades in MongoDB
     await UnassignedTrades.findOneAndUpdate(
       {},
       { totalUnassignedTrades, lastUpdated: new Date() },
       { upsert: true, new: true }
     );
 
-    // Step 6: Return the newly fetched data
+    // Step 7: Return the newly fetched data
     res.status(200).json({
       status: 'success',
       data: {
         totalUnassignedTrades,
-        staffStatistics: staffData
+        staffStatistics: staffData,
+        mispayment: {
+          expectedTotal: totalFiatRequested,
+          actualTotal: totalAmountPaid,
+          difference: mispayment
+        }
       }
     });
 
@@ -760,7 +782,6 @@ router.get('/staff/trade-statistics', async (req, res) => {
     });
   }
 });
-
 
 
 router.post('/paxful/webhook', async (req, res) => {
