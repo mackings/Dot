@@ -640,7 +640,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
     // Step 1: Check MongoDB for cached data
     const cachedStaffData = await TradeStatistics.find();
     const cachedUnassignedTrades = await UnassignedTrades.findOne();
-    const cacheExpiry = 5 * 60 * 1000; // Cache expires in 5 minutes
+    const cacheExpiry = 1 * 60 * 1000; // Cache expires in 5 minutes
     const currentTime = Date.now();
 
     if (
