@@ -52,7 +52,13 @@ const TradeStatisticsSchema = new mongoose.Schema({
   lastUpdated: { type: Date, default: Date.now }
 });
 
+const UnassignedTradesSchema = new mongoose.Schema({
+  totalUnassignedTrades: Number,
+  lastUpdated: { type: Date, default: Date.now }
+});
+
 const TradeStatistics = mongoose.model('TradeStatistics', TradeStatisticsSchema);
+const UnassignedTrades = mongoose.model('UnassignedTrades', UnassignedTradesSchema);
 
 const db = admin.firestore();
 
@@ -632,26 +638,37 @@ router.post('/assign/manual', assignTradesToStaffManually);
 router.get('/staff/trade-statistics', async (req, res) => {
   try {
     // Step 1: Check MongoDB for cached data
-    const cachedData = await TradeStatistics.find();
-    const cacheExpiry = 10 * 60 * 1000; // Cache expires in 10 minutes
+    const cachedStaffData = await TradeStatistics.find();
+    const cachedUnassignedTrades = await UnassignedTrades.findOne();
+    const cacheExpiry = 3 * 60 * 60 * 1000; // Cache expires in 3 hours
     const currentTime = Date.now();
 
-    if (cachedData.length && currentTime - new Date(cachedData[0].lastUpdated).getTime() < cacheExpiry) {
+    if (
+      cachedStaffData.length &&
+      cachedUnassignedTrades &&
+      currentTime - new Date(cachedStaffData[0].lastUpdated).getTime() < cacheExpiry &&
+      currentTime - new Date(cachedUnassignedTrades.lastUpdated).getTime() < cacheExpiry
+    ) {
       // Step 2: Return cached data if valid
       return res.status(200).json({
         status: 'success',
         data: {
-          totalUnassignedTrades: cachedData[0].totalUnassignedTrades || 0, // Example of how to include other fields
-          staffStatistics: cachedData
+          totalUnassignedTrades: cachedUnassignedTrades.totalUnassignedTrades,
+          staffStatistics: cachedStaffData
         }
       });
     }
 
-    // Step 3: Fetch from Firestore if no valid cache
-    const unassignedTradesSnapshot = await db.collection('unassignedTrades').get();
+    // Step 3: Fetch from Firestore with query limit to optimize reads
+    const unassignedTradesSnapshot = await db.collection('unassignedTrades')
+      .limit(500) // Adjust to limit reads
+      .get();
     const totalUnassignedTrades = unassignedTradesSnapshot.size;
 
-    const staffSnapshot = await db.collection('staff').get();
+    const staffSnapshot = await db.collection('staff')
+      .limit(500) // Adjust to limit reads
+      .get();
+
     const staffData = [];
 
     for (const staffDoc of staffSnapshot.docs) {
@@ -718,7 +735,14 @@ router.get('/staff/trade-statistics', async (req, res) => {
       );
     }
 
-    // Step 5: Return the newly fetched data
+    // Step 5: Save or update total unassigned trades in MongoDB
+    await UnassignedTrades.findOneAndUpdate(
+      {},
+      { totalUnassignedTrades, lastUpdated: new Date() },
+      { upsert: true, new: true }
+    );
+
+    // Step 6: Return the newly fetched data
     res.status(200).json({
       status: 'success',
       data: {
@@ -736,6 +760,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
     });
   }
 });
+
 
 
 
