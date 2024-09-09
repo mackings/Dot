@@ -670,8 +670,8 @@ router.get('/staff/trade-statistics', async (req, res) => {
       .get();
 
     const staffData = [];
-    let overallTotalFiatRequested = 0;
-    let overallTotalAmountPaid = 0;
+    let totalFiatRequested = 0;
+    let totalAmountPaid = 0;
 
     for (const staffDoc of staffSnapshot.docs) {
       const staff = staffDoc.data();
@@ -680,6 +680,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
 
       // Initialize tracking variables
       const paidTrades = assignedTrades.filter(trade => {
+        // Only count trades where markedAt is between "0" and "100" and it has a name object
         return typeof trade.markedAt === 'string' && trade.name && 
                !isNaN(trade.markedAt) && trade.markedAt !== 'Automatic';
       }).length;
@@ -690,22 +691,22 @@ router.get('/staff/trade-statistics', async (req, res) => {
       let totalAccuracy = 0;
       let tradeCountWithSpeed = 0;
 
-      let totalFiatRequested = 0;
-      let totalAmountPaid = 0;
-
       assignedTrades.forEach(trade => {
         const assignedAt = trade.assignedAt ? trade.assignedAt.toDate() : null;
         const markedAt = trade.markedAt;
 
+        // Use only trades with markedAt as number strings, excluding "Automatic"
         if (typeof markedAt === 'string' && trade.name && !isNaN(markedAt) && markedAt !== 'Automatic') {
           totalSpeed += parseInt(markedAt);
           tradeCountWithSpeed++;
 
+          // Add to total fiat requested and amount paid for mispayment calculation
           if (trade.fiat_amount_requested && trade.amountPaid) {
             totalFiatRequested += parseFloat(trade.fiat_amount_requested);
             totalAmountPaid += parseFloat(trade.amountPaid);
           }
 
+          // Calculate accuracy for each trade
           if (trade.amountPaid && trade.fiat_amount_requested) {
             const accuracy = Math.min(parseFloat(trade.amountPaid) / parseFloat(trade.fiat_amount_requested), 1);
             totalAccuracy += accuracy;
@@ -713,19 +714,22 @@ router.get('/staff/trade-statistics', async (req, res) => {
         }
       });
 
+      // Calculate average speed and accuracy
       const averageSpeed = tradeCountWithSpeed > 0 
-        ? (totalSpeed / tradeCountWithSpeed).toFixed(1) 
+        ? (totalSpeed / tradeCountWithSpeed).toFixed(1) // Round to one decimal place
         : 'No trades marked as paid';
         
       const accuracyScore = totalAssignedTrades > 0 
         ? (totalAccuracy / totalAssignedTrades) * 100 
         : 0;
 
+      // Calculate performance score
       const performanceScore = (accuracyScore * 0.5) 
                              + ((paidTrades / totalAssignedTrades) * 0.3) 
                              + ((1 / (averageSpeed || 1)) * 0.2);
 
-      const mispayment = totalFiatRequested - totalAmountPaid;
+      // Calculate mispayment for each staff
+      const staffMispayment = totalFiatRequested - totalAmountPaid;
 
       const staffStats = {
         staffId: staffDoc.id,
@@ -738,39 +742,40 @@ router.get('/staff/trade-statistics', async (req, res) => {
         mispayment: {
           expectedTotal: totalFiatRequested.toFixed(2),
           actualTotal: totalAmountPaid.toFixed(2),
-          difference: mispayment.toFixed(2)
+          difference: staffMispayment.toFixed(2)
         },
-        lastUpdated: new Date() 
+        lastUpdated: new Date() // Update cache time
       };
 
       staffData.push(staffStats);
 
+      // Step 4: Save or update staff statistics in MongoDB
       await TradeStatistics.findOneAndUpdate(
         { staffId: staffDoc.id },
         staffStats,
         { upsert: true, new: true }
       );
-
-      overallTotalFiatRequested += totalFiatRequested;
-      overallTotalAmountPaid += totalAmountPaid;
     }
 
-    const overallMispayment = overallTotalFiatRequested - overallTotalAmountPaid;
+    // Step 5: Calculate overall mispayment
+    const overallMispayment = totalFiatRequested - totalAmountPaid;
 
+    // Step 6: Save or update total unassigned trades in MongoDB
     await UnassignedTrades.findOneAndUpdate(
       {},
       { totalUnassignedTrades, lastUpdated: new Date() },
       { upsert: true, new: true }
     );
 
+    // Step 7: Return the newly fetched data
     res.status(200).json({
       status: 'success',
       data: {
         totalUnassignedTrades,
         staffStatistics: staffData,
         mispayment: {
-          expectedTotal: overallTotalFiatRequested.toFixed(2),
-          actualTotal: overallTotalAmountPaid.toFixed(2),
+          expectedTotal: totalFiatRequested.toFixed(2),
+          actualTotal: totalAmountPaid.toFixed(2),
           difference: overallMispayment.toFixed(2)
         }
       }
