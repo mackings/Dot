@@ -671,8 +671,8 @@ router.get('/staff/trade-statistics', async (req, res) => {
       .get();
 
     const staffData = [];
-    let totalFiatRequested = 0;
-    let totalAmountPaid = 0;
+    let totalGlobalFiatRequested = 0;
+    let totalGlobalAmountPaid = 0;
 
     // Step 3: Process staff data
     for (const staffDoc of staffSnapshot.docs) {
@@ -691,9 +691,12 @@ router.get('/staff/trade-statistics', async (req, res) => {
       let totalAccuracy = 0;
       let tradeCountWithSpeed = 0;
 
+      // Reset per-staff mispayment calculation
+      let totalFiatRequested = 0;
+      let totalAmountPaid = 0;
+
       // Step 4: Calculate average speed, accuracy, and mispayment
       assignedTrades.forEach(trade => {
-        const assignedAt = trade.assignedAt ? trade.assignedAt.toDate() : null;
         const markedAt = trade.markedAt;
 
         if (typeof markedAt === 'string' && trade.name && !isNaN(markedAt) && markedAt !== 'Automatic') {
@@ -736,27 +739,29 @@ router.get('/staff/trade-statistics', async (req, res) => {
         accuracyScore: accuracyScore.toFixed(2) + '%',
         performanceScore: performanceScore.toFixed(2),
         mispayment: {
-          expectedTotal: totalFiatRequested > 0 ? totalFiatRequested.toFixed(2) : '0.00',
-          actualTotal: totalAmountPaid > 0 ? totalAmountPaid.toFixed(2) : '0.00',
+          expectedTotal: totalFiatRequested.toFixed(2),
+          actualTotal: totalAmountPaid.toFixed(2),
           difference: staffMispayment.toFixed(2)
         },
         lastUpdated: new Date() // Update cache time
       };
+      
+      // Accumulate global totals for overall mispayment
+      totalGlobalFiatRequested += totalFiatRequested;
+      totalGlobalAmountPaid += totalAmountPaid;
 
       staffData.push(staffStats);
 
       // Step 6: Save or update staff statistics in MongoDB
       await TradeStatistics.findOneAndUpdate(
         { staffId: staffDoc.id },
-        {
-          $set: staffStats // Use the constructed staffStats object
-        },
+        { $set: staffStats },
         { upsert: true, new: true, overwrite: true } // Ensure document is fully updated
       );
     }
 
     // Step 7: Calculate overall mispayment
-    const overallMispayment = totalFiatRequested - totalAmountPaid;
+    const overallMispayment = totalGlobalFiatRequested - totalGlobalAmountPaid;
 
     // Step 8: Save or update total unassigned trades in MongoDB
     await UnassignedTrades.findOneAndUpdate(
@@ -770,18 +775,10 @@ router.get('/staff/trade-statistics', async (req, res) => {
       status: 'success',
       data: {
         totalUnassignedTrades,
-        staffStatistics: staffData.map(staff => ({
-          ...staff,
-          // Ensure mispayment is always present, even if missing
-          mispayment: staff.mispayment || {
-            expectedTotal: '0.00',
-            actualTotal: '0.00',
-            difference: '0.00'
-          }
-        })),
+        staffStatistics: staffData,
         mispayment: {
-          expectedTotal: totalFiatRequested.toFixed(2),
-          actualTotal: totalAmountPaid.toFixed(2),
+          expectedTotal: totalGlobalFiatRequested.toFixed(2),
+          actualTotal: totalGlobalAmountPaid.toFixed(2),
           difference: overallMispayment.toFixed(2)
         }
       }
@@ -796,6 +793,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
     });
   }
 });
+
 
 
 
