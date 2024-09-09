@@ -747,8 +747,24 @@ router.get('/staff/trade-statistics', async (req, res) => {
       // Step 7: Save or update staff statistics in MongoDB
       await TradeStatistics.findOneAndUpdate(
         { staffId: staffDoc.id },
-        staffStats,
-        { upsert: true, new: true }
+        {
+          $set: {
+            staffId: staffDoc.id,
+            totalAssignedTrades,
+            paidTrades,
+            unpaidTrades,
+            averageSpeed: averageSpeed === 'No trades marked as paid' ? averageSpeed : `${averageSpeed} seconds`,
+            accuracyScore: accuracyScore.toFixed(2) + '%',
+            performanceScore: performanceScore.toFixed(2),
+            mispayment: {
+              expectedTotal: totalFiatRequested > 0 ? totalFiatRequested.toFixed(2) : '0.00',
+              actualTotal: totalAmountPaid > 0 ? totalAmountPaid.toFixed(2) : '0.00',
+              difference: staffMispayment.toFixed(2)
+            },
+            lastUpdated: new Date() // Cache expiration timestamp
+          }
+        },
+        { upsert: true, new: true, overwrite: true } // Ensure document is fully updated
       );
     }
 
@@ -762,26 +778,28 @@ router.get('/staff/trade-statistics', async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // Step 10: Return the newly fetched data
-    res.status(200).json({
-      status: 'success',
-      data: {
-        totalUnassignedTrades,
-        staffStatistics: staffData.map(staff => ({
-          ...staff,
-          mispayment: staff.mispayment || {
-            expectedTotal: '0.00',
-            actualTotal: '0.00',
-            difference: '0.00'
-          }
-        })),
-        mispayment: {
-          expectedTotal: totalFiatRequested.toFixed(2),
-          actualTotal: totalAmountPaid.toFixed(2),
-          difference: overallMispayment.toFixed(2)
-        }
+// Step 10: Return the newly fetched data
+res.status(200).json({
+  status: 'success',
+  data: {
+    totalUnassignedTrades,
+    staffStatistics: staffData.map(staff => ({
+      ...staff,
+      // Ensure mispayment is always present, even if missing
+      mispayment: staff.mispayment || {
+        expectedTotal: '0.00',
+        actualTotal: '0.00',
+        difference: '0.00'
       }
-    });
+    })),
+    mispayment: {
+      expectedTotal: totalFiatRequested.toFixed(2),
+      actualTotal: totalAmountPaid.toFixed(2),
+      difference: overallMispayment.toFixed(2)
+    }
+  }
+});
+
 
   } catch (error) {
     console.error('Error fetching trade statistics:', error);
