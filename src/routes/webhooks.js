@@ -13,6 +13,7 @@ const dotenv = require('dotenv').config();
 const admin = require("firebase-admin");
 const axios = require("axios");
 const privateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
+const mongoose = require('mongoose');
 
 const serviceAccount = {
   type: "service_account",
@@ -30,6 +31,28 @@ const serviceAccount = {
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
+
+mongoose.connect('mongodb+srv://trainer:trainer@cluster0.1aivf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', {
+ // useNewUrlParser: true,
+  //useUnifiedTopology: true
+}).then(() => {
+  console.log('Connected to MongoDB');
+}).catch((err) => {
+  console.error('Error connecting to MongoDB:', err);
+});
+
+const TradeStatisticsSchema = new mongoose.Schema({
+  staffId: String,
+  totalAssignedTrades: Number,
+  paidTrades: Number,
+  unpaidTrades: Number,
+  averageSpeed: String,
+  accuracyScore: String,
+  performanceScore: String,
+  lastUpdated: { type: Date, default: Date.now }
+});
+
+const TradeStatistics = mongoose.model('TradeStatistics', TradeStatisticsSchema);
 
 const db = admin.firestore();
 
@@ -608,27 +631,37 @@ router.post('/assign/manual', assignTradesToStaffManually);
 
 router.get('/staff/trade-statistics', async (req, res) => {
   try {
-    // Step 1: Get the count of all unassigned trades
+    // Step 1: Check MongoDB for cached data
+    const cachedData = await TradeStatistics.find();
+    const cacheExpiry = 10 * 60 * 1000; // Cache expires in 10 minutes
+    const currentTime = Date.now();
+
+    if (cachedData.length && currentTime - new Date(cachedData[0].lastUpdated).getTime() < cacheExpiry) {
+      // Step 2: Return cached data if valid
+      return res.status(200).json({
+        status: 'success',
+        data: {
+          totalUnassignedTrades: cachedData[0].totalUnassignedTrades || 0, // Example of how to include other fields
+          staffStatistics: cachedData
+        }
+      });
+    }
+
+    // Step 3: Fetch from Firestore if no valid cache
     const unassignedTradesSnapshot = await db.collection('unassignedTrades').get();
     const totalUnassignedTrades = unassignedTradesSnapshot.size;
 
-    // Step 2: Fetch all staff data
     const staffSnapshot = await db.collection('staff').get();
     const staffData = [];
 
     for (const staffDoc of staffSnapshot.docs) {
       const staff = staffDoc.data();
       const assignedTrades = staff.assignedTrades || [];
-
-      // Step 3: Calculate the total assigned trades
       const totalAssignedTrades = assignedTrades.length;
-
-      // Step 4: Calculate the number of paid and unpaid trades
       const paidTrades = assignedTrades.filter(trade => trade.isPaid).length;
       const unpaidTrades = totalAssignedTrades - paidTrades;
 
-      // Step 5: Calculate the average speed (now in seconds) and derive performance score
-      let totalSpeed = 0; // Total speed in seconds
+      let totalSpeed = 0;
       let totalAccuracy = 0;
       let tradeCountWithSpeed = 0;
 
@@ -636,59 +669,64 @@ router.get('/staff/trade-statistics', async (req, res) => {
         const assignedAt = trade.assignedAt ? trade.assignedAt.toDate() : null;
         const markedAt = trade.markedAt;
 
-        // Handle markedAt as string "9" (speed in seconds) or "Automatic"
         if (trade.isPaid && assignedAt && markedAt) {
           if (!isNaN(markedAt)) {
-            // Directly use the numeric value in seconds
-            totalSpeed += parseInt(markedAt); // Here "markedAt" represents seconds
+            totalSpeed += parseInt(markedAt);
             tradeCountWithSpeed++;
-          } else if (markedAt === "Automatic") {
-            // Assign a default value for automatic marks (e.g., 0 seconds for instant)
+          } else if (markedAt === 'Automatic') {
             totalSpeed += 0;
             tradeCountWithSpeed++;
           }
         }
 
-        // Calculate accuracy by comparing amountPaid and fiat_amount_requested
         if (trade.amountPaid && trade.fiat_amount_requested) {
-          const accuracy = Math.min(trade.amountPaid / trade.fiat_amount_requested, 1); // Ensure max is 100%
+          const accuracy = Math.min(trade.amountPaid / trade.fiat_amount_requested, 1);
           totalAccuracy += accuracy;
         }
       });
 
       const averageSpeed = tradeCountWithSpeed > 0 
-        ? totalSpeed / tradeCountWithSpeed // Average speed in seconds
-        : "No trades marked as paid";
+        ? totalSpeed / tradeCountWithSpeed 
+        : 'No trades marked as paid';
         
       const accuracyScore = totalAssignedTrades > 0 
-        ? (totalAccuracy / totalAssignedTrades) * 100 // Accuracy as percentage
+        ? (totalAccuracy / totalAssignedTrades) * 100 
         : 0;
 
-      // Calculate a performance score based on trades, accuracy, and speed
-      const performanceScore = (accuracyScore * 0.5) // Accuracy weighs 50%
-                             + ((paidTrades / totalAssignedTrades) * 0.3) // Paid trades ratio weighs 30%
-                             + ((1 / (averageSpeed || 1)) * 0.2); // Speed weighs 20% (faster = better)
+      const performanceScore = (accuracyScore * 0.5) 
+                             + ((paidTrades / totalAssignedTrades) * 0.3) 
+                             + ((1 / (averageSpeed || 1)) * 0.2);
 
-      // Step 6: Compile all statistics for the current staff
-      staffData.push({
+      const staffStats = {
         staffId: staffDoc.id,
         totalAssignedTrades,
         paidTrades,
         unpaidTrades,
-        averageSpeed: averageSpeed === "No trades marked as paid" ? averageSpeed : `${averageSpeed} seconds`,
-        accuracyScore: accuracyScore.toFixed(2) + '%',  // Accuracy as percentage
-        performanceScore: performanceScore.toFixed(2)   // Overall performance score
-      });
+        averageSpeed: averageSpeed === 'No trades marked as paid' ? averageSpeed : `${averageSpeed} seconds`,
+        accuracyScore: accuracyScore.toFixed(2) + '%',
+        performanceScore: performanceScore.toFixed(2),
+        lastUpdated: new Date() // Update cache time
+      };
+
+      staffData.push(staffStats);
+
+      // Step 4: Save or update staff statistics in MongoDB
+      await TradeStatistics.findOneAndUpdate(
+        { staffId: staffDoc.id },
+        staffStats,
+        { upsert: true, new: true }
+      );
     }
 
-    // Step 7: Send the response
+    // Step 5: Return the newly fetched data
     res.status(200).json({
       status: 'success',
       data: {
         totalUnassignedTrades,
-        staffStatistics: staffData,
-      },
+        staffStatistics: staffData
+      }
     });
+
   } catch (error) {
     console.error('Error fetching trade statistics:', error);
     res.status(500).json({
