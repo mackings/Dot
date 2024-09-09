@@ -57,6 +57,16 @@ const TradeStatisticsSchema = new mongoose.Schema({
   lastUpdated: { type: Date, default: Date.now }
 });
 
+
+const unassignedTradesSchema = new mongoose.Schema({
+  totalUnassignedTrades: Number,
+  lastUpdated: { type: Date, default: Date.now }
+});
+
+const TradeStatistics = mongoose.model('TradeStatistics', TradeStatisticsSchema);
+const UnassignedTrades = mongoose.model('UnassignedTrades', unassignedTradesSchema);
+
+
 const db = admin.firestore();
 
 const addNewStaff = async (staffId, staffDetails) => {
