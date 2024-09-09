@@ -680,7 +680,6 @@ router.get('/staff/trade-statistics', async (req, res) => {
 
       // Initialize tracking variables
       const paidTrades = assignedTrades.filter(trade => {
-        // Only count trades where markedAt is between "0" and "100" and it has a name object
         return typeof trade.markedAt === 'string' && trade.name && 
                !isNaN(trade.markedAt) && trade.markedAt !== 'Automatic';
       }).length;
@@ -698,18 +697,15 @@ router.get('/staff/trade-statistics', async (req, res) => {
         const assignedAt = trade.assignedAt ? trade.assignedAt.toDate() : null;
         const markedAt = trade.markedAt;
 
-        // Use only trades with markedAt as number strings, excluding "Automatic"
         if (typeof markedAt === 'string' && trade.name && !isNaN(markedAt) && markedAt !== 'Automatic') {
           totalSpeed += parseInt(markedAt);
           tradeCountWithSpeed++;
 
-          // Add to total fiat requested and amount paid for mispayment calculation
           if (trade.fiat_amount_requested && trade.amountPaid) {
             totalFiatRequested += parseFloat(trade.fiat_amount_requested);
             totalAmountPaid += parseFloat(trade.amountPaid);
           }
 
-          // Calculate accuracy for each trade
           if (trade.amountPaid && trade.fiat_amount_requested) {
             const accuracy = Math.min(parseFloat(trade.amountPaid) / parseFloat(trade.fiat_amount_requested), 1);
             totalAccuracy += accuracy;
@@ -717,21 +713,18 @@ router.get('/staff/trade-statistics', async (req, res) => {
         }
       });
 
-      // Calculate average speed and accuracy
       const averageSpeed = tradeCountWithSpeed > 0 
-        ? (totalSpeed / tradeCountWithSpeed).toFixed(1) // Round to one decimal place
+        ? (totalSpeed / tradeCountWithSpeed).toFixed(1) 
         : 'No trades marked as paid';
         
       const accuracyScore = totalAssignedTrades > 0 
         ? (totalAccuracy / totalAssignedTrades) * 100 
         : 0;
 
-      // Calculate performance score
       const performanceScore = (accuracyScore * 0.5) 
                              + ((paidTrades / totalAssignedTrades) * 0.3) 
                              + ((1 / (averageSpeed || 1)) * 0.2);
 
-      // Calculate mispayment
       const mispayment = totalFiatRequested - totalAmountPaid;
 
       const staffStats = {
@@ -742,32 +735,34 @@ router.get('/staff/trade-statistics', async (req, res) => {
         averageSpeed: averageSpeed === 'No trades marked as paid' ? averageSpeed : `${averageSpeed} seconds`,
         accuracyScore: accuracyScore.toFixed(2) + '%',
         performanceScore: performanceScore.toFixed(2),
-        mispayment: mispayment.toFixed(2), // Add mispayment to each staff object
-        lastUpdated: new Date() // Update cache time
+        mispayment: {
+          expectedTotal: totalFiatRequested.toFixed(2),
+          actualTotal: totalAmountPaid.toFixed(2),
+          difference: mispayment.toFixed(2)
+        },
+        lastUpdated: new Date() 
       };
 
       staffData.push(staffStats);
 
-      // Step 4: Save or update staff statistics in MongoDB
       await TradeStatistics.findOneAndUpdate(
         { staffId: staffDoc.id },
         staffStats,
         { upsert: true, new: true }
       );
 
-      // Update overall totals for mispayment calculation
       overallTotalFiatRequested += totalFiatRequested;
       overallTotalAmountPaid += totalAmountPaid;
     }
 
-    // Step 5: Save or update total unassigned trades in MongoDB
+    const overallMispayment = overallTotalFiatRequested - overallTotalAmountPaid;
+
     await UnassignedTrades.findOneAndUpdate(
       {},
       { totalUnassignedTrades, lastUpdated: new Date() },
       { upsert: true, new: true }
     );
 
-    // Step 6: Return the newly fetched data
     res.status(200).json({
       status: 'success',
       data: {
@@ -776,7 +771,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
         mispayment: {
           expectedTotal: overallTotalFiatRequested.toFixed(2),
           actualTotal: overallTotalAmountPaid.toFixed(2),
-          difference: (overallTotalFiatRequested - overallTotalAmountPaid).toFixed(2)
+          difference: overallMispayment.toFixed(2)
         }
       }
     });
