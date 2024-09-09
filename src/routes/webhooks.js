@@ -49,8 +49,14 @@ const TradeStatisticsSchema = new mongoose.Schema({
   averageSpeed: String,
   accuracyScore: String,
   performanceScore: String,
-  lastUpdated: { type: Date, default: Date.now }
+  lastUpdated: { type: Date, default: Date.now },
+  mispayment: {
+    expectedTotal: { type: String, default: '0.00' },
+    actualTotal: { type: String, default: '0.00' },
+    difference: { type: String, default: '0.00' }
+  }
 });
+
 
 const UnassignedTradesSchema = new mongoose.Schema({
   totalUnassignedTrades: Number,
@@ -739,16 +745,12 @@ router.get('/staff/trade-statistics', async (req, res) => {
         },
         lastUpdated: new Date() // Update cache time
       };
-
-      staffData.push(staffStats);
-
-      // Step 4: Save or update staff statistics in MongoDB
+      
       await TradeStatistics.findOneAndUpdate(
         { staffId: staffDoc.id },
         staffStats,
         { upsert: true, new: true }
       );
-    }
 
     // Step 5: Calculate overall mispayment
     const overallMispayment = totalFiatRequested - totalAmountPaid;
