@@ -760,7 +760,7 @@ const staffStats = {
       staffData.push(staffStats);
 
       // Step 6: Save or update staff statistics in MongoDB
-      await TradeStatisticsSchema.findOneAndUpdate(
+      await TradeStatistics.findOneAndUpdate(
         { staffId: staffDoc.id },
         { $set: staffStats },
         { upsert: true, new: true, overwrite: true } // Ensure document is fully updated
