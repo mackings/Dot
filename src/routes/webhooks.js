@@ -91,7 +91,7 @@ const newStaffDetails = {
   role: 'Payer',
 };
 
-addNewStaff('Auto Marker', newStaffDetails);
+addNewStaff('Vee', newStaffDetails);
 
 //Assign Trades to Staff Automatically
 
@@ -133,21 +133,21 @@ const assignTradeToStaff = async (tradePayload) => {
 
     const assignedStaff = staffWithLeastTrades.id;
     const staffRef = db.collection('staff').doc(assignedStaff);
-
-    // First, get the server timestamp
     const assignedAt = new Date();
 
     // Now update the assignedTrades array without using serverTimestamp() inside arrayUnion
-    await staffRef.update({
-      assignedTrades: admin.firestore.FieldValue.arrayUnion({
-        trade_hash: tradePayload.trade_hash,
-        fiat_amount_requested: tradePayload.fiat_amount_requested,
-        assignedAt: assignedAt, // Assign the manual timestamp here
-        isPaid: false
-      }),
-    });
 
-    console.log(`Trade ${tradePayload.trade_hash} assigned to ${assignedStaff}.`);
+    // await staffRef.update({
+    //   assignedTrades: admin.firestore.FieldValue.arrayUnion({
+    //     trade_hash: tradePayload.trade_hash,
+    //     fiat_amount_requested: tradePayload.fiat_amount_requested,
+    //     assignedAt: assignedAt, // Assign the manual timestamp here
+    //     isPaid: false
+    //   }),
+    // });
+
+   // console.log(`Trade ${tradePayload.trade_hash} assigned to ${assignedStaff}.`);
+   console.log("Running without Assignation");
   } catch (error) {
     console.error('Error assigning trade to staff:', error);
   }
@@ -303,7 +303,7 @@ const saveTradeToFirestore = async (payload, collection) => {
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    await assignTradeToStaff(payload);
+   await assignTradeToStaff(payload);
     console.log(`Trade ${payload.trade_hash} saved to Firestore and assigned.`);
     console.log(`Trade ${payload.trade_hash} saved to Firestore.`);
   } catch (error) {
