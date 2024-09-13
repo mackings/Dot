@@ -743,28 +743,38 @@ router.get('/staff/trade-statistics', async (req, res) => {
       const assignedTrades = staff.assignedTrades || [];
       let totalFiatRequested = 0;
       let totalAmountPaid = 0;
+      let mispaymentAmount = 0;
 
       assignedTrades.forEach(trade => {
         const amountPaid = trade.amountPaid ? Number(trade.amountPaid) : 0;
         const fiatRequested = trade.fiat_amount_requested ? parseFloat(trade.fiat_amount_requested) : 0;
-        
-        // Ensure both amounts are valid numbers before summing
-        if (!isNaN(amountPaid)) {
-          totalAmountPaid += amountPaid;
+
+        // Add to mispayment if markedAt is "Automatic"
+        if (trade.markedAt === "Automatic") {
+          mispaymentAmount += fiatRequested; // The full requested amount is treated as mispayment
         }
+
+        // Add to totalAmountPaid if markedAt is not "Automatic" and name is present
+        if (trade.markedAt !== "Automatic" && trade.name) {
+          if (!isNaN(amountPaid)) {
+            totalAmountPaid += amountPaid;
+          }
+        }
+
+        // Always sum fiat_requested to calculate expected total
         if (!isNaN(fiatRequested)) {
           totalFiatRequested += fiatRequested;
         }
       });
 
-      // Step 2: Calculate mispayment
-      const staffMispayment = totalFiatRequested - totalAmountPaid;
+      // Step 2: Calculate overall mispayment for the staff member
+      const staffMispayment = totalFiatRequested - totalAmountPaid + mispaymentAmount;
 
       // Step 3: Create staff statistics object
       const staffStats = {
         staffId: staffDoc.id,
-        totalFiatRequested: totalFiatRequested.toFixed(2), // Ensure numbers are properly formatted
-        totalAmountPaid: totalAmountPaid.toFixed(2), // Ensure numbers are properly formatted
+        totalFiatRequested: totalFiatRequested.toFixed(2),
+        totalAmountPaid: totalAmountPaid.toFixed(2),
         mispayment: staffMispayment.toFixed(2),
         lastUpdated: new Date()
       };
