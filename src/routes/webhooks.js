@@ -708,6 +708,8 @@ router.post('/trade/update', async (req, res) => {
 //Manual Assignment 
 router.post('/assign/manual', assignTradesToStaffManually);
 
+//Get Duration
+
 // Statistics 
 
 router.get('/staff/trade-statistics', async (req, res) => {
@@ -778,13 +780,14 @@ router.get('/staff/trade-statistics', async (req, res) => {
           totalSpeed += parseInt(markedAt);
           tradeCountWithSpeed++;
 
+          // Convert fiat_amount_requested (string) and amountPaid (int) to numbers
           if (trade.fiat_amount_requested && trade.amountPaid) {
-            totalFiatRequested += parseFloat(trade.fiat_amount_requested);
-            totalAmountPaid += parseFloat(trade.amountPaid);
+            totalFiatRequested += parseFloat(trade.fiat_amount_requested); // Convert string to float
+            totalAmountPaid += trade.amountPaid; // Already an integer
           }
 
           if (trade.amountPaid && trade.fiat_amount_requested) {
-            const accuracy = Math.min(parseFloat(trade.amountPaid) / parseFloat(trade.fiat_amount_requested), 1);
+            const accuracy = Math.min(trade.amountPaid / parseFloat(trade.fiat_amount_requested), 1);
             totalAccuracy += accuracy;
           }
         }
@@ -805,21 +808,21 @@ router.get('/staff/trade-statistics', async (req, res) => {
       const staffMispayment = totalFiatRequested - totalAmountPaid;
 
       // Step 5: Construct staff statistics object
-const staffStats = {
-  staffId: staffDoc.id,
-  totalAssignedTrades,
-  paidTrades,
-  unpaidTrades,
-  averageSpeed: averageSpeed === 'No trades marked as paid' ? averageSpeed : `${averageSpeed} seconds`,
-  accuracyScore: accuracyScore.toFixed(2) + '%',
-  performanceScore: performanceScore.toFixed(2),
-  mispayment: {
-    expectedTotal: totalFiatRequested.toFixed(2),
-    actualTotal: totalAmountPaid.toFixed(2),
-    difference: staffMispayment.toFixed(2)
-  },
-  lastUpdated: new Date() // Update cache time
-};
+      const staffStats = {
+        staffId: staffDoc.id,
+        totalAssignedTrades,
+        paidTrades,
+        unpaidTrades,
+        averageSpeed: averageSpeed === 'No trades marked as paid' ? averageSpeed : `${averageSpeed} seconds`,
+        accuracyScore: accuracyScore.toFixed(2) + '%',
+        performanceScore: performanceScore.toFixed(2),
+        mispayment: {
+          expectedTotal: totalFiatRequested.toFixed(2),
+          actualTotal: totalAmountPaid.toFixed(2),
+          difference: staffMispayment.toFixed(2)
+        },
+        lastUpdated: new Date() // Update cache time
+      };
       
       // Accumulate global totals for overall mispayment
       totalGlobalFiatRequested += totalFiatRequested;
