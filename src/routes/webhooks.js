@@ -780,14 +780,15 @@ router.get('/staff/trade-statistics', async (req, res) => {
           totalSpeed += parseInt(markedAt);
           tradeCountWithSpeed++;
 
-          // Convert fiat_amount_requested (string) and amountPaid (int) to numbers
-          if (trade.fiat_amount_requested && trade.amountPaid) {
-            totalFiatRequested += parseFloat(trade.fiat_amount_requested); // Convert string to float
-            totalAmountPaid += trade.amountPaid; // Already an integer
-          }
+          // Convert fiat_amount_requested (string) and amountPaid (int) to numbers, defaulting to 0 if missing
+          const fiatAmount = parseFloat(trade.fiat_amount_requested) || 0; // Convert string to float, default to 0
+          const amountPaid = parseFloat(trade.amountPaid) || 0; // Convert to float, default to 0
 
-          if (trade.amountPaid && trade.fiat_amount_requested) {
-            const accuracy = Math.min(trade.amountPaid / parseFloat(trade.fiat_amount_requested), 1);
+          totalFiatRequested += fiatAmount;
+          totalAmountPaid += amountPaid;
+
+          if (fiatAmount > 0) {
+            const accuracy = Math.min(amountPaid / fiatAmount, 1);
             totalAccuracy += accuracy;
           }
         }
@@ -872,6 +873,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
     });
   }
 });
+
 
 
 
