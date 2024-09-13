@@ -91,7 +91,7 @@ const newStaffDetails = {
   role: 'Payer',
 };
 
-addNewStaff('Vee', newStaffDetails);
+addNewStaff('Kee', newStaffDetails);
 
 //Assign Trades to Staff Automatically
 
@@ -745,10 +745,15 @@ router.get('/staff/trade-statistics', async (req, res) => {
       let totalAmountPaid = 0;
 
       assignedTrades.forEach(trade => {
-        if (trade.fiat_amount_requested && trade.amountPaid) {
-          // Sum fiat_amount_requested (convert to float) and amountPaid
-          totalFiatRequested += parseFloat(trade.fiat_amount_requested);
-          totalAmountPaid += trade.amountPaid;
+        const amountPaid = trade.amountPaid ? Number(trade.amountPaid) : 0;
+        const fiatRequested = trade.fiat_amount_requested ? parseFloat(trade.fiat_amount_requested) : 0;
+        
+        // Ensure both amounts are valid numbers before summing
+        if (!isNaN(amountPaid)) {
+          totalAmountPaid += amountPaid;
+        }
+        if (!isNaN(fiatRequested)) {
+          totalFiatRequested += fiatRequested;
         }
       });
 
@@ -758,8 +763,8 @@ router.get('/staff/trade-statistics', async (req, res) => {
       // Step 3: Create staff statistics object
       const staffStats = {
         staffId: staffDoc.id,
-        totalFiatRequested: totalFiatRequested.toFixed(2), // Converted to string for response
-        totalAmountPaid: totalAmountPaid.toFixed(2), // Converted to string for response
+        totalFiatRequested: totalFiatRequested.toFixed(2), // Ensure numbers are properly formatted
+        totalAmountPaid: totalAmountPaid.toFixed(2), // Ensure numbers are properly formatted
         mispayment: staffMispayment.toFixed(2),
         lastUpdated: new Date()
       };
@@ -813,9 +818,6 @@ router.get('/staff/trade-statistics', async (req, res) => {
     });
   }
 });
-
-
-
 
 
 
