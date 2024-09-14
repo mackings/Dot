@@ -730,7 +730,6 @@ router.get('/staff/trade-statistics', async (req, res) => {
     const cacheExpiry = 1 * 60 * 1000; // Cache expires in 1 minute
     const currentTime = Date.now();
 
-    // Check if cache is still valid
     if (cachedStaffData.length && cachedUnassignedTrades &&
       currentTime - new Date(cachedStaffData[0].lastUpdated).getTime() < cacheExpiry &&
       currentTime - new Date(cachedUnassignedTrades.lastUpdated).getTime() < cacheExpiry) {
@@ -743,7 +742,6 @@ router.get('/staff/trade-statistics', async (req, res) => {
       });
     }
 
-    // Step 1: Fetch from Firestore
     const staffSnapshot = await db.collection('staff').limit(500).get();
     const staffData = [];
     let totalGlobalFiatRequested = 0;
@@ -762,12 +760,10 @@ router.get('/staff/trade-statistics', async (req, res) => {
         const amountPaid = trade.amountPaid ? Number(trade.amountPaid) : 0;
         const fiatRequested = trade.fiat_amount_requested ? parseFloat(trade.fiat_amount_requested) : 0;
 
-        // Add to mispayment if markedAt is "Automatic"
         if (trade.markedAt === "Automatic") {
           mispaymentAmount += fiatRequested; // The full requested amount is treated as mispayment
         }
 
-        // Add to totalAmountPaid if markedAt is not "Automatic" and name is present
         if (trade.markedAt !== "Automatic" && trade.name) {
           if (!isNaN(amountPaid)) {
             totalAmountPaid += amountPaid;
@@ -777,30 +773,27 @@ router.get('/staff/trade-statistics', async (req, res) => {
           unpaidTrades++;
         }
 
-        // Always sum fiat_requested to calculate expected total
         if (!isNaN(fiatRequested)) {
           totalFiatRequested += fiatRequested;
         }
       });
 
-      // Calculate average speed (approximated as 2.5 seconds per trade)
-      const averageSpeed = assignedTrades.length ? 2.5 : 2.0; // Adjust if actual data is available
+      let averageSpeed = null;
+      let performanceScore = null;
 
-      // Calculate performance score out of 10
-      const tradePerformance = totalFiatRequested > 0 ? (totalAmountPaid / totalFiatRequested) * 10 : 0;
-      const speedPenalty = averageSpeed > 2.5 ? 0 : 10; // Adjust the penalty based on average speed
-      const tradeCountScore = (paidTrades + unpaidTrades) > 0 ? (paidTrades / (paidTrades + unpaidTrades)) * 10 : 0;
+      // Only calculate if there are assigned trades
+      if (assignedTrades.length > 0) {
+        averageSpeed = 2.5; // Assumed value, can be dynamically calculated
+        const tradePerformance = totalFiatRequested > 0 ? (totalAmountPaid / totalFiatRequested) * 10 : 0;
+        const speedPenalty = averageSpeed > 2.5 ? 0 : 10; 
+        const tradeCountScore = (paidTrades + unpaidTrades) > 0 ? (paidTrades / (paidTrades + unpaidTrades)) * 10 : 0;
 
-      // Final performance score
-      const performanceScore = (tradePerformance + tradeCountScore + speedPenalty) / 3;
-      
-      // Ensure performanceScore is a valid number between 0 and 10
-      const validPerformanceScore = !isNaN(performanceScore) ? Math.max(0, Math.min(10, performanceScore)) : 0;
+        performanceScore = (tradePerformance + tradeCountScore + speedPenalty) / 3;
+        performanceScore = Math.max(0, Math.min(10, performanceScore)); // Ensure it's between 0 and 10
+      }
 
-      // Step 2: Calculate overall mispayment for the staff member
       const staffMispayment = totalFiatRequested - totalAmountPaid + mispaymentAmount;
 
-      // Step 3: Create staff statistics object
       const staffStats = {
         staffId: staffDoc.id,
         totalFiatRequested: totalFiatRequested.toFixed(2),
@@ -808,19 +801,17 @@ router.get('/staff/trade-statistics', async (req, res) => {
         mispayment: staffMispayment.toFixed(2),
         paidTrades,
         unpaidTrades,
-        averageSpeed: averageSpeed.toFixed(2), // Assumes averageSpeed should be rounded
+        averageSpeed: averageSpeed ? averageSpeed.toFixed(2) : null,
         totalAssignedTrades: assignedTrades.length,
-        performanceScore: Math.round(validPerformanceScore), // Round to nearest integer
+        performanceScore: performanceScore !== null ? Math.round(performanceScore) : null,
         lastUpdated: new Date()
       };
 
-      // Accumulate global totals
       totalGlobalFiatRequested += totalFiatRequested;
       totalGlobalAmountPaid += totalAmountPaid;
 
       staffData.push(staffStats);
 
-      // Save or update staff statistics in MongoDB
       await TradeStatistics.findOneAndUpdate(
         { staffId: staffDoc.id },
         { $set: staffStats },
@@ -828,10 +819,8 @@ router.get('/staff/trade-statistics', async (req, res) => {
       );
     }
 
-    // Step 4: Calculate overall mispayment
     const overallMispayment = totalGlobalFiatRequested - totalGlobalAmountPaid;
 
-    // Step 5: Save or update total unassigned trades in MongoDB
     const unassignedTradesSnapshot = await db.collection('unassignedTrades').limit(500).get();
     const totalUnassignedTrades = unassignedTradesSnapshot.size;
 
@@ -841,7 +830,6 @@ router.get('/staff/trade-statistics', async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // Step 6: Save global mispayment totals
     await Mispayment.findOneAndUpdate(
       {},
       {
@@ -852,7 +840,6 @@ router.get('/staff/trade-statistics', async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // Step 7: Return the result
     res.status(200).json({
       status: 'success',
       data: {
@@ -874,6 +861,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
     });
   }
 });
+
 
 
 router.post('/paxful/webhook', async (req, res) => {
