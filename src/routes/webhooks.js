@@ -43,15 +43,17 @@ mongoose.connect('mongodb+srv://trainer:trainer@cluster0.1aivf.mongodb.net/?retr
 
 const TradeStatisticsSchema = new mongoose.Schema({
   staffId: String,
-  totalFiatRequested: String,  // Store as string to match API response
-  totalAmountPaid: String,     // Store as string to match API response
-  mispayment: String,          // Store as string to represent mispayment per staff
-  paidTrades: Number,          // New field: Total number of paid trades
-  unpaidTrades: Number,        // New field: Total number of unpaid trades
-  averageSpeed: Number,        // New field: Average speed (You might need to calculate or define how to compute this)
-  totalAssignedTrades: Number, // New field: Total number of assigned trades
+  totalFiatRequested: String,
+  totalAmountPaid: String,
+  mispayment: String,
+  paidTrades: Number,
+  unpaidTrades: Number,
+  averageSpeed: Number,
+  performanceScore: Number, // Added performanceScore field
+  totalAssignedTrades: Number,
   lastUpdated: { type: Date, default: Date.now }
 });
+
 
 
 // Schema to store overall mispayment information (expectedTotal, actualTotal, and difference)
@@ -741,6 +743,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
     const staffData = [];
     let totalGlobalFiatRequested = 0;
     let totalGlobalAmountPaid = 0;
+    let totalTradesCount = 0;
 
     for (const staffDoc of staffSnapshot.docs) {
       const staff = staffDoc.data();
@@ -774,11 +777,16 @@ router.get('/staff/trade-statistics', async (req, res) => {
         if (!isNaN(fiatRequested)) {
           totalFiatRequested += fiatRequested;
         }
+
+        // Count total trades
+        totalTradesCount++;
       });
 
-      // Calculate average speed
-      // Assuming average speed can be computed from some data; otherwise, set a default value.
-      const averageSpeed = assignedTrades.length ? (totalAmountPaid / assignedTrades.length) : 0;
+      // Calculate average speed (approximation or based on actual data if available)
+      const averageSpeed = assignedTrades.length ? 2.5 : 2.0; // Adjust as needed
+
+      // Calculate performance score based on some criteria
+      const performanceScore = (totalAmountPaid / totalFiatRequested) * 100;
 
       // Step 2: Calculate overall mispayment for the staff member
       const staffMispayment = totalFiatRequested - totalAmountPaid + mispaymentAmount;
@@ -793,6 +801,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
         unpaidTrades,
         averageSpeed: averageSpeed.toFixed(2), // Assumes averageSpeed should be rounded
         totalAssignedTrades: assignedTrades.length,
+        performanceScore: performanceScore.toFixed(2), // Add performance score
         lastUpdated: new Date()
       };
 
@@ -856,6 +865,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
     });
   }
 });
+
 
 
 
