@@ -49,10 +49,11 @@ const TradeStatisticsSchema = new mongoose.Schema({
   paidTrades: Number,
   unpaidTrades: Number,
   averageSpeed: Number,
-  performanceScore: Number, // Added performanceScore field
+  performanceScore: { type: Number, default: 0 }, // Ensure default value
   totalAssignedTrades: Number,
   lastUpdated: { type: Date, default: Date.now }
 });
+
 
 
 
@@ -743,7 +744,6 @@ router.get('/staff/trade-statistics', async (req, res) => {
     const staffData = [];
     let totalGlobalFiatRequested = 0;
     let totalGlobalAmountPaid = 0;
-    let totalTradesCount = 0;
 
     for (const staffDoc of staffSnapshot.docs) {
       const staff = staffDoc.data();
@@ -777,16 +777,13 @@ router.get('/staff/trade-statistics', async (req, res) => {
         if (!isNaN(fiatRequested)) {
           totalFiatRequested += fiatRequested;
         }
-
-        // Count total trades
-        totalTradesCount++;
       });
 
-      // Calculate average speed (approximation or based on actual data if available)
-      const averageSpeed = assignedTrades.length ? 2.5 : 2.0; // Adjust as needed
+      // Calculate average speed (approximated as 2.5 seconds per trade)
+      const averageSpeed = assignedTrades.length ? 2.5 : 2.0; // Adjust if actual data is available
 
-      // Calculate performance score based on some criteria
-      const performanceScore = (totalAmountPaid / totalFiatRequested) * 100;
+      // Calculate performance score, ensuring totalFiatRequested is not zero
+      const performanceScore = totalFiatRequested > 0 ? (totalAmountPaid / totalFiatRequested) * 100 : 0;
 
       // Step 2: Calculate overall mispayment for the staff member
       const staffMispayment = totalFiatRequested - totalAmountPaid + mispaymentAmount;
@@ -865,7 +862,6 @@ router.get('/staff/trade-statistics', async (req, res) => {
     });
   }
 });
-
 
 
 
