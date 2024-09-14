@@ -782,8 +782,14 @@ router.get('/staff/trade-statistics', async (req, res) => {
       // Calculate average speed (approximated as 2.5 seconds per trade)
       const averageSpeed = assignedTrades.length ? 2.5 : 2.0; // Adjust if actual data is available
 
-      // Calculate performance score, ensuring totalFiatRequested is not zero
-      const performanceScore = totalFiatRequested > 0 ? (totalAmountPaid / totalFiatRequested) * 100 : 0;
+      // Calculate performance score out of 10
+      // Here we factor in performance, speed, paid trades, and unpaid trades
+      const tradePerformance = totalFiatRequested > 0 ? (totalAmountPaid / totalFiatRequested) * 10 : 0;
+      const speedPenalty = averageSpeed > 2.5 ? 0 : 10; // Adjust the penalty based on average speed
+      const tradeCountScore = paidTrades / (paidTrades + unpaidTrades) * 10;
+
+      // Final performance score
+      const performanceScore = Math.max(0, Math.min(10, (tradePerformance + tradeCountScore + speedPenalty) / 3));
 
       // Step 2: Calculate overall mispayment for the staff member
       const staffMispayment = totalFiatRequested - totalAmountPaid + mispaymentAmount;
@@ -798,7 +804,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
         unpaidTrades,
         averageSpeed: averageSpeed.toFixed(2), // Assumes averageSpeed should be rounded
         totalAssignedTrades: assignedTrades.length,
-        performanceScore: performanceScore.toFixed(2), // Add performance score
+        performanceScore: Math.round(performanceScore), // Round to nearest integer
         lastUpdated: new Date()
       };
 
@@ -862,7 +868,6 @@ router.get('/staff/trade-statistics', async (req, res) => {
     });
   }
 });
-
 
 
 router.post('/paxful/webhook', async (req, res) => {
