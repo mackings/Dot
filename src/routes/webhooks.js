@@ -46,8 +46,13 @@ const TradeStatisticsSchema = new mongoose.Schema({
   totalFiatRequested: String,  // Store as string to match API response
   totalAmountPaid: String,     // Store as string to match API response
   mispayment: String,          // Store as string to represent mispayment per staff
+  paidTrades: Number,          // New field: Total number of paid trades
+  unpaidTrades: Number,        // New field: Total number of unpaid trades
+  averageSpeed: Number,        // New field: Average speed (You might need to calculate or define how to compute this)
+  totalAssignedTrades: Number, // New field: Total number of assigned trades
   lastUpdated: { type: Date, default: Date.now }
 });
+
 
 // Schema to store overall mispayment information (expectedTotal, actualTotal, and difference)
 const mispaymentSchema = new mongoose.Schema({
@@ -743,6 +748,8 @@ router.get('/staff/trade-statistics', async (req, res) => {
       let totalFiatRequested = 0;
       let totalAmountPaid = 0;
       let mispaymentAmount = 0;
+      let paidTrades = 0;
+      let unpaidTrades = 0;
 
       assignedTrades.forEach(trade => {
         const amountPaid = trade.amountPaid ? Number(trade.amountPaid) : 0;
@@ -757,7 +764,10 @@ router.get('/staff/trade-statistics', async (req, res) => {
         if (trade.markedAt !== "Automatic" && trade.name) {
           if (!isNaN(amountPaid)) {
             totalAmountPaid += amountPaid;
+            paidTrades++;
           }
+        } else {
+          unpaidTrades++;
         }
 
         // Always sum fiat_requested to calculate expected total
@@ -765,6 +775,10 @@ router.get('/staff/trade-statistics', async (req, res) => {
           totalFiatRequested += fiatRequested;
         }
       });
+
+      // Calculate average speed
+      // Assuming average speed can be computed from some data; otherwise, set a default value.
+      const averageSpeed = assignedTrades.length ? (totalAmountPaid / assignedTrades.length) : 0;
 
       // Step 2: Calculate overall mispayment for the staff member
       const staffMispayment = totalFiatRequested - totalAmountPaid + mispaymentAmount;
@@ -775,6 +789,10 @@ router.get('/staff/trade-statistics', async (req, res) => {
         totalFiatRequested: totalFiatRequested.toFixed(2),
         totalAmountPaid: totalAmountPaid.toFixed(2),
         mispayment: staffMispayment.toFixed(2),
+        paidTrades,
+        unpaidTrades,
+        averageSpeed: averageSpeed.toFixed(2), // Assumes averageSpeed should be rounded
+        totalAssignedTrades: assignedTrades.length,
         lastUpdated: new Date()
       };
 
@@ -838,7 +856,6 @@ router.get('/staff/trade-statistics', async (req, res) => {
     });
   }
 });
-
 
 
 
