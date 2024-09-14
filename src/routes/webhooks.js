@@ -719,6 +719,10 @@ router.post('/assign/manual', assignTradesToStaffManually);
 
 // Statistics 
 
+
+
+
+
 router.get('/staff/trade-statistics', async (req, res) => {
   try {
     const cachedStaffData = await TradeStatistics.find();
@@ -783,13 +787,15 @@ router.get('/staff/trade-statistics', async (req, res) => {
       const averageSpeed = assignedTrades.length ? 2.5 : 2.0; // Adjust if actual data is available
 
       // Calculate performance score out of 10
-      // Here we factor in performance, speed, paid trades, and unpaid trades
       const tradePerformance = totalFiatRequested > 0 ? (totalAmountPaid / totalFiatRequested) * 10 : 0;
       const speedPenalty = averageSpeed > 2.5 ? 0 : 10; // Adjust the penalty based on average speed
-      const tradeCountScore = paidTrades / (paidTrades + unpaidTrades) * 10;
+      const tradeCountScore = (paidTrades + unpaidTrades) > 0 ? (paidTrades / (paidTrades + unpaidTrades)) * 10 : 0;
 
       // Final performance score
-      const performanceScore = Math.max(0, Math.min(10, (tradePerformance + tradeCountScore + speedPenalty) / 3));
+      const performanceScore = (tradePerformance + tradeCountScore + speedPenalty) / 3;
+      
+      // Ensure performanceScore is a valid number between 0 and 10
+      const validPerformanceScore = !isNaN(performanceScore) ? Math.max(0, Math.min(10, performanceScore)) : 0;
 
       // Step 2: Calculate overall mispayment for the staff member
       const staffMispayment = totalFiatRequested - totalAmountPaid + mispaymentAmount;
@@ -804,7 +810,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
         unpaidTrades,
         averageSpeed: averageSpeed.toFixed(2), // Assumes averageSpeed should be rounded
         totalAssignedTrades: assignedTrades.length,
-        performanceScore: Math.round(performanceScore), // Round to nearest integer
+        performanceScore: Math.round(validPerformanceScore), // Round to nearest integer
         lastUpdated: new Date()
       };
 
