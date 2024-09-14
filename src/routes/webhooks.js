@@ -43,21 +43,20 @@ mongoose.connect('mongodb+srv://trainer:trainer@cluster0.1aivf.mongodb.net/?retr
 
 const TradeStatisticsSchema = new mongoose.Schema({
   staffId: String,
-  totalAssignedTrades: Number,
-  paidTrades: Number,
-  unpaidTrades: Number,
-  averageSpeed: String,
-  accuracyScore: String,
-  performanceScore: String,
-  mispayment: {
-    expectedTotal: String,  // Store as string to match your current data format
-    actualTotal: String,
-    difference: String
-  },
+  totalFiatRequested: String,  // Store as string to match API response
+  totalAmountPaid: String,     // Store as string to match API response
+  mispayment: String,          // Store as string to represent mispayment per staff
   lastUpdated: { type: Date, default: Date.now }
 });
 
+// Schema to store overall mispayment information (expectedTotal, actualTotal, and difference)
+const mispaymentSchema = new mongoose.Schema({
+  expectedTotal: String,  // Store as string to match API response
+  actualTotal: String,    // Store as string to match API response
+  difference: String      // Store as string to match API response
+});
 
+// For unassigned trades
 const unassignedTradesSchema = new mongoose.Schema({
   totalUnassignedTrades: Number,
   lastUpdated: { type: Date, default: Date.now }
@@ -65,7 +64,7 @@ const unassignedTradesSchema = new mongoose.Schema({
 
 const TradeStatistics = mongoose.model('TradeStatistics', TradeStatisticsSchema);
 const UnassignedTrades = mongoose.model('UnassignedTrades', unassignedTradesSchema);
-
+const Mispayment = mongoose.model('Mispayment', mispaymentSchema);  // Save global mispayment totals
 
 const db = admin.firestore();
 
@@ -806,7 +805,18 @@ router.get('/staff/trade-statistics', async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // Step 6: Return the result
+    // Step 6: Save global mispayment totals
+    await Mispayment.findOneAndUpdate(
+      {},
+      {
+        expectedTotal: totalGlobalFiatRequested.toFixed(2),
+        actualTotal: totalGlobalAmountPaid.toFixed(2),
+        difference: overallMispayment.toFixed(2)
+      },
+      { upsert: true, new: true }
+    );
+
+    // Step 7: Return the result
     res.status(200).json({
       status: 'success',
       data: {
@@ -828,6 +838,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
     });
   }
 });
+
 
 
 
