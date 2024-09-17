@@ -102,73 +102,6 @@ addNewStaff('Kee', newStaffDetails);
 
 //Assign Trades to Staff Automatically
 
-// const assignTradeToStaff = async (tradePayload) => {
-//   try {
-//     const staffSnapshot = await db.collection('staff').get();
-//     let eligibleStaff = [];
-
-//     // Filter out staff with pending unpaid trades
-//     staffSnapshot.docs.forEach(doc => {
-//       const staffData = doc.data();
-//       const hasPendingTrades = staffData.assignedTrades.some(trade => !trade.isPaid);
-
-//       if (!hasPendingTrades) {
-//         eligibleStaff.push(doc);
-//       }
-//     });
-
-//     if (eligibleStaff.length === 0) {
-//       console.log('All staff have pending unpaid trades. Saving trade for later assignment.');
-      
-//       // Save the trade in the unassignedTrades collection
-//       await db.collection('unassignedTrades').add({
-//         trade_hash: tradePayload.trade_hash,
-//         fiat_amount_requested: tradePayload.fiat_amount_requested,
-//         timestamp: admin.firestore.FieldValue.serverTimestamp(),
-//       });
-
-//       return;
-//     }
-
-//     // Find the staff with the least number of trades
-//     let staffWithLeastTrades = eligibleStaff[0];
-//     eligibleStaff.forEach(doc => {
-//       if (doc.data().assignedTrades.length < staffWithLeastTrades.data().assignedTrades.length) {
-//         staffWithLeastTrades = doc;
-//       }
-//     });
-
-//     const assignedStaff = staffWithLeastTrades.id;
-//     const staffRef = db.collection('staff').doc(assignedStaff);
-//     const assignedAt = new Date();
-
-//     // Now update the assignedTrades array without using serverTimestamp() inside arrayUnion
-
-//     await staffRef.update({
-//       assignedTrades: admin.firestore.FieldValue.arrayUnion({
-//         trade_hash: tradePayload.trade_hash,
-//         fiat_amount_requested: tradePayload.fiat_amount_requested,
-//         assignedAt: assignedAt, // Assign the manual timestamp here
-//         isPaid: false
-//       }),
-//     });
-
-//    // console.log(`Trade ${tradePayload.trade_hash} assigned to ${assignedStaff}.`);
-//    console.log("Running without Assignation");
-//   } catch (error) {
-//     console.error('Error assigning trade to staff:', error);
-//   }
-// };
-
-//Assign Trades Maunally
-
-
-
-//Assign to Unassigned
-
-
-
-
 const assignTradeToStaff = async (tradePayload) => {
   try {
     const staffSnapshot = await db.collection('staff').get();
@@ -197,8 +130,6 @@ const assignTradeToStaff = async (tradePayload) => {
       return;
     }
 
-    // Comment out the trade assignment to staff
-    /*
     // Find the staff with the least number of trades
     let staffWithLeastTrades = eligibleStaff[0];
     eligibleStaff.forEach(doc => {
@@ -212,6 +143,7 @@ const assignTradeToStaff = async (tradePayload) => {
     const assignedAt = new Date();
 
     // Now update the assignedTrades array without using serverTimestamp() inside arrayUnion
+
     await staffRef.update({
       assignedTrades: admin.firestore.FieldValue.arrayUnion({
         trade_hash: tradePayload.trade_hash,
@@ -221,14 +153,80 @@ const assignTradeToStaff = async (tradePayload) => {
       }),
     });
 
-    console.log(`Trade ${tradePayload.trade_hash} assigned to ${assignedStaff}.`);
-    */
-
-    console.log("Running without Assignation");
+   console.log(`Trade ${tradePayload.trade_hash} assigned to ${assignedStaff}.`);
+  
   } catch (error) {
     console.error('Error assigning trade to staff:', error);
   }
 };
+
+
+
+
+
+//Assign Trades Maunally
+//Trainee Assignment
+
+// const assignTradeToStaff = async (tradePayload) => {
+//   try {
+//     const staffSnapshot = await db.collection('staff').get();
+//     let eligibleStaff = [];
+
+//     // Filter out staff with pending unpaid trades
+//     staffSnapshot.docs.forEach(doc => {
+//       const staffData = doc.data();
+//       const hasPendingTrades = staffData.assignedTrades.some(trade => !trade.isPaid);
+
+//       if (!hasPendingTrades) {
+//         eligibleStaff.push(doc);
+//       }
+//     });
+
+//     if (eligibleStaff.length === 0) {
+//       console.log('All staff have pending unpaid trades. Saving trade for later assignment.');
+      
+//       // Save the trade in the unassignedTrades collection
+//       await db.collection('unassignedTrades').add({
+//         trade_hash: tradePayload.trade_hash,
+//         fiat_amount_requested: tradePayload.fiat_amount_requested,
+//         timestamp: admin.firestore.FieldValue.serverTimestamp(),
+//       });
+
+//       return;
+//     }
+
+//     // Comment out the trade assignment to staff
+//     /*
+//     // Find the staff with the least number of trades
+//     let staffWithLeastTrades = eligibleStaff[0];
+//     eligibleStaff.forEach(doc => {
+//       if (doc.data().assignedTrades.length < staffWithLeastTrades.data().assignedTrades.length) {
+//         staffWithLeastTrades = doc;
+//       }
+//     });
+
+//     const assignedStaff = staffWithLeastTrades.id;
+//     const staffRef = db.collection('staff').doc(assignedStaff);
+//     const assignedAt = new Date();
+
+//     // Now update the assignedTrades array without using serverTimestamp() inside arrayUnion
+//     await staffRef.update({
+//       assignedTrades: admin.firestore.FieldValue.arrayUnion({
+//         trade_hash: tradePayload.trade_hash,
+//         fiat_amount_requested: tradePayload.fiat_amount_requested,
+//         assignedAt: assignedAt, // Assign the manual timestamp here
+//         isPaid: false
+//       }),
+//     });
+
+//     console.log(`Trade ${tradePayload.trade_hash} assigned to ${assignedStaff}.`);
+//     */
+
+//     console.log("Running without Assignation");
+//   } catch (error) {
+//     console.error('Error assigning trade to staff:', error);
+//   }
+// };
 
 const assignTradesToStaffManually = async (req, res) => {
   try {
@@ -300,7 +298,6 @@ const assignTradesToStaffManually = async (req, res) => {
     });
   }
 };
-
 
 // Function to assign a trade from unassignedTrades when staff becomes free
 
@@ -603,6 +600,8 @@ router.get('/staff/:staffId/history', async (req, res) => {
 });
 
 
+
+
 router.post('/trade/mark', async (req, res) => {
   const { markedAt, trade_hash, name, amountPaid } = req.body;
 
@@ -660,7 +659,6 @@ router.post('/trade/mark', async (req, res) => {
 });
 
 
-
 //Update dEtails 
 
 router.post('/trade/update', async (req, res) => {
@@ -711,6 +709,7 @@ router.post('/trade/update', async (req, res) => {
     res.status(500).json({ status: 'error', message: 'Failed to update trade details.', error });
   }
 });
+
 
 //Manual Assignment 
 router.post('/assign/manual', assignTradesToStaffManually);
