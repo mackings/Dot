@@ -41,6 +41,7 @@ mongoose.connect('mongodb+srv://trainer:trainer@cluster0.1aivf.mongodb.net/?retr
   console.error('Error connecting to MongoDB:', err);
 });
 
+
 const TradeStatisticsSchema = new mongoose.Schema({
   staffId: String,
   totalFiatRequested: String,
@@ -70,11 +71,13 @@ const unassignedTradesSchema = new mongoose.Schema({
   lastUpdated: { type: Date, default: Date.now }
 });
 
+
 const TradeStatistics = mongoose.model('TradeStatistics', TradeStatisticsSchema);
 const UnassignedTrades = mongoose.model('UnassignedTrades', unassignedTradesSchema);
 const Mispayment = mongoose.model('Mispayment', mispaymentSchema);  // Save global mispayment totals
 
 const db = admin.firestore();
+
 
 const addNewStaff = async (staffId, staffDetails) => {
   try {
@@ -103,6 +106,7 @@ addNewStaff('Kee', newStaffDetails);
 //Assign Trades to Staff Automatically
 
 const assignTradeToStaff = async (tradePayload) => {
+  
   try {
     const staffSnapshot = await db.collection('staff').get();
     let eligibleStaff = [];
@@ -118,10 +122,11 @@ const assignTradeToStaff = async (tradePayload) => {
     });
 
     if (eligibleStaff.length === 0) {
-      console.log('All staff have pending unpaid trades. Saving trade for later assignment.');
+
+      console.log('Dropping Trades for the Best >>>');
       
       // Save the trade in the unassignedTrades collection
-      await db.collection('unassignedTrades').add({
+      await db.collection('manualunassigned').add({
         trade_hash: tradePayload.trade_hash,
         fiat_amount_requested: tradePayload.fiat_amount_requested,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -376,16 +381,18 @@ const saveTradeToFirestore = async (payload, collection) => {
     });
 
    await assignTradeToStaff(payload);
+
     console.log(`Trade ${payload.trade_hash} saved to Firestore and assigned.`);
-    console.log(`Trade ${payload.trade_hash} saved to Firestore.`);
   } catch (error) {
     console.error('Error saving the trade to Firestore:', error);
   }
 };
 
+
+
 const saveChatMessageToFirestore = async (payload, messages) => {
   try {
-    const docRef = db.collection('tradeMessages').doc(payload.trade_hash);
+    const docRef = db.collection('manualmessages').doc(payload.trade_hash);
     await db.runTransaction(async (transaction) => {
       const doc = await transaction.get(docRef);
       if (!doc.exists) {
@@ -415,17 +422,19 @@ const handleTradeStarted = async (payload, paxfulApi) => {
   try {
     const response = await paxfulApi.invoke('/paxful/v1/trade/get', { trade_hash: payload.trade_hash });
     console.log(`Trade Invocation: ${response}`);
-    await saveTradeToFirestore(payload, 'trades');
+
+    await saveTradeToFirestore(payload, 'manualsystem');
     const message = "Hello..";
 
     await paxfulApi.invoke('/paxful/v1/trade-chat/post', {
       trade_hash: payload.trade_hash,
       message,
     });
-    console.log("Message Sent");
+  
   } catch (error) {
     console.error('Error in trade.started handler:', error);
   }
+
 };
 
 
@@ -555,6 +564,8 @@ router.post('/paxful/pay', async (req, res) => {
     const done = await paxfulApi.invoke('/paxful/v1/trade/paid', {
       trade_hash: hash,
     });
+    await assignUnassignedTrade();
+
     res.json({ status: 'success', message: 'Payment marked successfully.', done });
   } catch (error) {
     console.error('Error marking payment as completed:', error);
