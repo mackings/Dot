@@ -105,6 +105,7 @@ addNewStaff('Kee', newStaffDetails);
 
 //Assign Trades to Staff Automatically
 
+
 const assignTradeToStaff = async (tradePayload) => {
   
   try {
@@ -253,7 +254,7 @@ const assignTradesToStaffManually = async (req, res) => {
     }
 
     // Fetch the specified number of unassigned trades
-    const unassignedTradesSnapshot = await db.collection('unassignedTrades')
+    const unassignedTradesSnapshot = await db.collection('trades')
       .orderBy('timestamp')
       .limit(numTrades)
       .get();
@@ -286,7 +287,7 @@ const assignTradesToStaffManually = async (req, res) => {
     // Remove the assigned trades from the unassignedTrades collection
     const batch = db.batch();
     unassignedTrades.forEach(trade => {
-      const unassignedTradeRef = db.collection('unassignedTrades').doc(trade.id);
+      const unassignedTradeRef = db.collection('trades').doc(trade.id);
       batch.delete(unassignedTradeRef);
     });
 
@@ -388,11 +389,57 @@ const saveTradeToFirestore = async (payload, collection) => {
   }
 };
 
+const TrainesaveTradeToFirestore = async (payload, collection) => {
+
+  try {
+
+    const docRef = db.collection(collection).doc(payload.trade_hash);
+    await docRef.set({
+      ...payload,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+   await assignTradeToStaff(payload);
+
+    console.log(`Trade ${payload.trade_hash} saved to Firestore and assigned.`);
+  } catch (error) {
+    console.error('Error saving the trade to Firestore:', error);
+  }
+};
+
+
+
 
 
 const saveChatMessageToFirestore = async (payload, messages) => {
   try {
     const docRef = db.collection('manualmessages').doc(payload.trade_hash);
+    await db.runTransaction(async (transaction) => {
+      const doc = await transaction.get(docRef);
+      if (!doc.exists) {
+        console.log(`Document for trade ${payload.trade_hash} does not exist. Creating a new document.`);
+        transaction.set(docRef, {
+          trade_hash: payload.trade_hash,
+          messages: messages,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } else {
+        console.log(`Document for trade ${payload.trade_hash} exists. Updating the document.`);
+        transaction.update(docRef, {
+          messages: admin.firestore.FieldValue.arrayUnion(...messages),
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    });
+    console.log(`Chat messages for trade ${payload.trade_hash} saved to Firestore.`);
+  } catch (error) {
+    console.error('Error saving chat messages to Firestore:', error);
+  }
+};
+
+const TrainsaveChatMessageToFirestore = async (payload, messages) => {
+  try {
+    const docRef = db.collection('tradeMessages').doc(payload.trade_hash);
     await db.runTransaction(async (transaction) => {
       const doc = await transaction.get(docRef);
       if (!doc.exists) {
@@ -424,6 +471,7 @@ const handleTradeStarted = async (payload, paxfulApi) => {
     console.log(`Trade Invocation: ${response}`);
 
     await saveTradeToFirestore(payload, 'manualsystem');
+    await TrainesaveTradeToFirestore(payload,'trades');
     const message = "Hello..";
 
     await paxfulApi.invoke('/paxful/v1/trade-chat/post', {
@@ -505,6 +553,8 @@ const handlers = {
     }];
 
     await saveChatMessageToFirestore(payload, messages);
+    await TrainsaveChatMessageToFirestore(payload,messages);
+
   },
 
   'trade.paid': async (payload, tradesHandler) => {

@@ -23,6 +23,7 @@ const app = express();
 
 app.use(cors());
 // Savings original raw body, needed for Paxful webhook signature checking
+
 app.use(function(req, res, next) {
     req.rawBody = '';
 
