@@ -106,6 +106,7 @@ addNewStaff('Kee', newStaffDetails);
 //Assign Trades to Staff Automatically
 
 
+
 const assignTradeToStaff = async (tradePayload) => {
   
   try {
@@ -381,7 +382,7 @@ const saveTradeToFirestore = async (payload, collection) => {
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-   await assignTradeToStaff(payload);
+   //await assignTradeToStaff(payload);
 
     console.log(`Trade ${payload.trade_hash} saved to Firestore and assigned.`);
   } catch (error) {
