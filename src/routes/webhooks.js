@@ -725,7 +725,7 @@ router.post('/trade/mark', async (req, res) => {
 //Update dEtails 
 
 router.post('/trade/update', async (req, res) => {
-  const { staffId, name, amountPaid } = req.body;
+  const { staffId, amountPaid } = req.body;
 
   try {
     // Fetch the specific staff document by staffId
@@ -743,35 +743,37 @@ router.post('/trade/update', async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'No trades assigned to this staff.' });
     }
 
-    // Find the trade by amountPaid or the first trade without a name
-    let tradeToUpdate = assignedTrades.find(trade => trade.amountPaid === amountPaid) || 
-                        assignedTrades.find(trade => !trade.name);
+    // Find the trade where amountPaid matches the fiat_amount_requested
+    let tradeToUpdate = assignedTrades.find(trade => {
+      return trade.amountPaid === amountPaid && parseFloat(trade.fiat_amount_requested) === parseFloat(amountPaid);
+    });
 
     if (!tradeToUpdate) {
       return res.status(404).json({ status: 'error', message: 'No trade available to update.' });
     }
 
-    // Update the trade details
+    // Update the trade details (example - you can modify this part as needed)
     const tradeIndex = assignedTrades.indexOf(tradeToUpdate);
     assignedTrades[tradeIndex] = {
       ...tradeToUpdate,
-      name: name || tradeToUpdate.name,  // Update name if provided, else keep existing
-      amountPaid: amountPaid || tradeToUpdate.amountPaid,  // Update amountPaid if provided
+      // Here, you can add logic to update the fields you need, for example:
+      amountPaid: amountPaid,
     };
 
-    // Immediately update the assigned trades in Firestore
+    // Save the updated assigned trades back to Firestore
     await staffRef.update({ assignedTrades });
 
     // Return a successful response
     res.json({
       status: 'success',
-      message: `Trade updated successfully: name = ${name || tradeToUpdate.name}, amountPaid = ${amountPaid || tradeToUpdate.amountPaid}.`
+      message: `Trade updated successfully with amountPaid = ${amountPaid}.`
     });
   } catch (error) {
     console.error('Error updating trade details:', error);
     res.status(500).json({ status: 'error', message: 'Failed to update trade details.', error });
   }
 });
+
 
 
 //Manual Assignment 
