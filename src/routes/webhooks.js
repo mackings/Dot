@@ -745,19 +745,19 @@ router.post('/trade/update', async (req, res) => {
 
     // Find the trade where amountPaid matches the fiat_amount_requested
     let tradeToUpdate = assignedTrades.find(trade => {
-      return trade.amountPaid === amountPaid && parseFloat(trade.fiat_amount_requested) === parseFloat(amountPaid);
+      const requestedAmount = parseFloat(trade.fiat_amount_requested); // Convert to float for comparison
+      return parseFloat(amountPaid) === requestedAmount; // Compare as numbers
     });
 
     if (!tradeToUpdate) {
       return res.status(404).json({ status: 'error', message: 'No trade available to update.' });
     }
 
-    // Update the trade details (example - you can modify this part as needed)
+    // Update the trade details
     const tradeIndex = assignedTrades.indexOf(tradeToUpdate);
     assignedTrades[tradeIndex] = {
       ...tradeToUpdate,
-      // Here, you can add logic to update the fields you need, for example:
-      amountPaid: amountPaid,
+      amountPaid: amountPaid, // Update amountPaid
     };
 
     // Save the updated assigned trades back to Firestore
