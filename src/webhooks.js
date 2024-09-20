@@ -8,3 +8,4 @@ module.exports.isValidSignature = (signature, host, originalUrl, rawBody) => {
         Buffer.from(process.env.WEBHOOK_SIGNATURE_PUBLIC_KEY, 'base64') // TODdOss consider adding it as a constant?
     )
 }
+

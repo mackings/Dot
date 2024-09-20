@@ -168,9 +168,6 @@ const assignTradeToStaff = async (tradePayload) => {
 };
 
 
-
-
-
 //Assign Trades Maunally
 //Trainee Assignment
 
@@ -668,9 +665,11 @@ router.post('/trade/mark', async (req, res) => {
   const { markedAt, trade_hash, name, amountPaid } = req.body;
 
   try {
+    // Fetch all staff data
     const staffSnapshot = await admin.firestore().collection('staff').get();
     let staffToUpdate;
 
+    // Loop through all staff documents to find the trade
     staffSnapshot.docs.forEach(doc => {
       const staffData = doc.data();
       const tradeIndex = staffData.assignedTrades.findIndex(trade => trade.trade_hash === trade_hash);
@@ -687,28 +686,29 @@ router.post('/trade/mark', async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'Trade not found.' });
     }
 
-    // Reference the staff document
+    // Reference the staff document for update
     const staffRef = admin.firestore().collection('staff').doc(staffToUpdate.docId);
     const staffDoc = await staffRef.get();
     const assignedTrades = staffDoc.data().assignedTrades;
 
+    // Get the specific trade to update
     const tradeToUpdate = assignedTrades[staffToUpdate.tradeIndex];
 
-    // Update isPaid and markedAt fields
+    // Mark the trade as paid and update markedAt
     tradeToUpdate.isPaid = true;
     tradeToUpdate.markedAt = markedAt;
 
-    // If name or amountPaid are provided, only update them if they don't already exist
-    if (name && !tradeToUpdate.name) {
-      tradeToUpdate.name = name;
+    // Explicitly update name and amountPaid for the correct trade (only if provided)
+    if (name) {
+      tradeToUpdate.name = name; // Update name even if it exists
     }
-    if (amountPaid && !tradeToUpdate.amountPaid) {
-      tradeToUpdate.amountPaid = amountPaid;
+
+    if (amountPaid) {
+      tradeToUpdate.amountPaid = amountPaid; // Update amountPaid even if it exists
     }
 
     // Save the updated assignedTrades array back to Firestore
     await staffRef.update({ assignedTrades });
-    //await assignUnassignedTrade();
 
     res.json({
       status: 'success',
@@ -719,6 +719,7 @@ router.post('/trade/mark', async (req, res) => {
     res.status(500).json({ status: 'error', message: 'Failed to mark trade as paid.', error });
   }
 });
+
 
 
 //Update dEtails 
@@ -779,10 +780,6 @@ router.post('/assign/manual', assignTradesToStaffManually);
 //Get Duration
 
 // Statistics 
-
-
-
-
 
 router.get('/staff/trade-statistics', async (req, res) => {
   try {
@@ -926,6 +923,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
 
 
 router.post('/paxful/webhook', async (req, res) => {
+
   res.set('X-Paxful-Request-Challenge', req.headers['x-paxful-request-challenge']);
   console.log('Webhook received with headers:', req.headers);
 
@@ -972,7 +970,6 @@ router.post('/paxful/webhook', async (req, res) => {
     res.status(204).json({ status: 'ignored', message: 'Unhandled event' });
   }
 });
-
 
 
 /////Rates pax/bin
