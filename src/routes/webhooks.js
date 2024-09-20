@@ -725,7 +725,7 @@ router.post('/trade/mark', async (req, res) => {
 //Update dEtails 
 
 router.post('/trade/update', async (req, res) => {
-  const { staffId, amountPaid } = req.body;
+  const { staffId, amountPaid , name} = req.body;
 
   try {
     // Fetch the specific staff document by staffId
@@ -757,6 +757,7 @@ router.post('/trade/update', async (req, res) => {
     const tradeIndex = assignedTrades.indexOf(tradeToUpdate);
     assignedTrades[tradeIndex] = {
       ...tradeToUpdate,
+      name:name,
       amountPaid: amountPaid, // Update amountPaid
     };
 
