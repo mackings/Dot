@@ -50,10 +50,12 @@ const TradeStatisticsSchema = new mongoose.Schema({
   paidTrades: Number,
   unpaidTrades: Number,
   averageSpeed: Number,
-  performanceScore: { type: Number, default: 0 }, // Ensure default value
+  performanceScore: { type: Number, default: 0 },
   totalAssignedTrades: Number,
+  flaggedTrades: Number,  // New field to track total flagged trades
   lastUpdated: { type: Date, default: Date.now }
 });
+
 
 
 
@@ -795,7 +797,6 @@ router.post('/assign/manual', assignTradesToStaffManually);
 
 
 router.get('/staff/trade-statistics', async (req, res) => {
-
   try {
     const cachedStaffData = await TradeStatistics.find();
     const cachedUnassignedTrades = await UnassignedTrades.findOne();
@@ -827,15 +828,25 @@ router.get('/staff/trade-statistics', async (req, res) => {
       let mispaymentAmount = 0;
       let paidTrades = 0;
       let unpaidTrades = 0;
+      let flaggedTrades = 0;  // New variable to track flagged trades
+      let totalSpeed = 0;
+      let speedCount = 0;
 
       assignedTrades.forEach(trade => {
         const amountPaid = trade.amountPaid ? Number(trade.amountPaid) : 0;
         const fiatRequested = trade.fiat_amount_requested ? parseFloat(trade.fiat_amount_requested) : 0;
 
-        if (trade.markedAt === "Automatic") {
-          mispaymentAmount += fiatRequested; // The full requested amount is treated as mispayment
+        // Count flagged trades
+        if (trade.flagged === true) {
+          flaggedTrades++;
         }
 
+        // Handle mispayments
+        if (trade.markedAt === "Automatic") {
+          mispaymentAmount += fiatRequested;
+        }
+
+        // Handle paid and unpaid trades
         if (trade.markedAt !== "Automatic" && trade.name) {
           if (!isNaN(amountPaid)) {
             totalAmountPaid += amountPaid;
@@ -845,23 +856,29 @@ router.get('/staff/trade-statistics', async (req, res) => {
           unpaidTrades++;
         }
 
+        // Add to speed calculation if markedAt is present and numeric
+        const tradeSpeed = parseFloat(trade.markedAt);
+        if (!isNaN(tradeSpeed)) {
+          totalSpeed += tradeSpeed;
+          speedCount++;
+        }
+
         if (!isNaN(fiatRequested)) {
           totalFiatRequested += fiatRequested;
         }
       });
 
-      let averageSpeed = null;
-      let performanceScore = null;
+      // Calculate average speed based on markedAt
+      let averageSpeed = speedCount > 0 ? (totalSpeed / speedCount) : null;
 
-      // Only calculate if there are assigned trades
+      let performanceScore = null;
       if (assignedTrades.length > 0) {
-        averageSpeed = 2.5; // Assumed value, can be dynamically calculated
         const tradePerformance = totalFiatRequested > 0 ? (totalAmountPaid / totalFiatRequested) * 10 : 0;
-        const speedPenalty = averageSpeed > 2.5 ? 0 : 10; 
+        const speedPenalty = averageSpeed && averageSpeed > 2.5 ? 0 : 10; // Example speed threshold
         const tradeCountScore = (paidTrades + unpaidTrades) > 0 ? (paidTrades / (paidTrades + unpaidTrades)) * 10 : 0;
 
         performanceScore = (tradePerformance + tradeCountScore + speedPenalty) / 3;
-        performanceScore = Math.max(0, Math.min(10, performanceScore)); // Ensure it's between 0 and 10
+        performanceScore = Math.max(0, Math.min(10, performanceScore)); // Ensure score is between 0 and 10
       }
 
       const staffMispayment = totalFiatRequested - totalAmountPaid + mispaymentAmount;
@@ -874,6 +891,7 @@ router.get('/staff/trade-statistics', async (req, res) => {
         paidTrades,
         unpaidTrades,
         averageSpeed: averageSpeed ? averageSpeed.toFixed(2) : null,
+        flaggedTrades,  // Include flagged trades count in the stats
         totalAssignedTrades: assignedTrades.length,
         performanceScore: performanceScore !== null ? Math.round(performanceScore) : null,
         lastUpdated: new Date()
