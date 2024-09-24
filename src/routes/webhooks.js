@@ -234,9 +234,83 @@ const assignTradeToStaff = async (tradePayload) => {
 //   }
 // };
 
+// const assignTradesToStaffManually = async (req, res) => {
+//   try {
+//     const { staffId, numberOfTrades } = req.body;
+
+//     // Validate the request
+//     if (!staffId || !numberOfTrades || isNaN(numberOfTrades)) {
+//       return res.status(400).json({ message: 'Invalid staffId or numberOfTrades' });
+//     }
+
+//     const numTrades = parseInt(numberOfTrades);
+
+//     // Fetch the staff document
+//     const staffRef = db.collection('staff').doc(staffId);
+//     const staffDoc = await staffRef.get();
+
+//     if (!staffDoc.exists) {
+//       return res.status(404).json({ message: 'Staff not found' });
+//     }
+
+//     // Fetch the specified number of unassigned trades
+//     const unassignedTradesSnapshot = await db.collection('trades')
+//       .orderBy('timestamp')
+//       .limit(numTrades)
+//       .get();
+
+//     if (unassignedTradesSnapshot.empty) {
+//       return res.status(404).json({ message: 'No unassigned trades available.' });
+//     }
+
+//     // Get the unassigned trades data
+//     const unassignedTrades = [];
+//     unassignedTradesSnapshot.docs.forEach((doc) => {
+//       unassignedTrades.push({
+//         id: doc.id,
+//         ...doc.data(),
+//       });
+//     });
+
+//     // Assign the trades to the staff
+//     const assignedTrades = unassignedTrades.map(trade => ({
+//       trade_hash: trade.trade_hash,
+//       fiat_amount_requested: trade.fiat_amount_requested,
+//       isPaid: false,
+//       assignedAt: new Date(),
+//     }));
+
+//     await staffRef.update({
+//       assignedTrades: admin.firestore.FieldValue.arrayUnion(...assignedTrades),
+//     });
+
+//     // Remove the assigned trades from the unassignedTrades collection
+//     const batch = db.batch();
+//     unassignedTrades.forEach(trade => {
+//       const unassignedTradeRef = db.collection('trades').doc(trade.id);
+//       batch.delete(unassignedTradeRef);
+//     });
+
+//     await batch.commit();
+
+//     res.status(200).json({
+//       message: `${numTrades} trades assigned to staff ${staffId}.`,
+//     });
+//   } catch (error) {
+//     console.error('Error assigning trades manually:', error);
+//     res.status(500).json({
+//       message: 'Internal server error',
+//       error: error.message,
+//     });
+//   }
+// };
+
+
+
 const assignTradesToStaffManually = async (req, res) => {
+  
   try {
-    const { staffId, numberOfTrades } = req.body;
+    const { staffId, numberOfTrades, timeLimitInMinutes, timeLimitInHours } = req.body;
 
     // Validate the request
     if (!staffId || !numberOfTrades || isNaN(numberOfTrades)) {
@@ -244,6 +318,20 @@ const assignTradesToStaffManually = async (req, res) => {
     }
 
     const numTrades = parseInt(numberOfTrades);
+
+    // Calculate time limit in milliseconds
+    let timeLimit = 0;
+    if (timeLimitInMinutes) {
+      timeLimit += parseInt(timeLimitInMinutes) * 60 * 1000; 
+    }
+    if (timeLimitInHours) {
+      timeLimit += parseInt(timeLimitInHours) * 60 * 60 * 1000;
+    }
+
+    // Validate time limit
+    if (timeLimit <= 0) {
+      return res.status(400).json({ message: 'Invalid time limit. It must be greater than 0.' });
+    }
 
     // Fetch the staff document
     const staffRef = db.collection('staff').doc(staffId);
@@ -272,12 +360,16 @@ const assignTradesToStaffManually = async (req, res) => {
       });
     });
 
+    // Calculate expiration time
+    const expirationTime = Date.now() + timeLimit; // Current time + time limit
+
     // Assign the trades to the staff
     const assignedTrades = unassignedTrades.map(trade => ({
       trade_hash: trade.trade_hash,
       fiat_amount_requested: trade.fiat_amount_requested,
       isPaid: false,
       assignedAt: new Date(),
+      expirationTime: expirationTime, // Set the expiration time for each trade
     }));
 
     await staffRef.update({
@@ -293,8 +385,11 @@ const assignTradesToStaffManually = async (req, res) => {
 
     await batch.commit();
 
+    // Set a timeout to check for expired trades
+    setTimeout(() => checkForExpiredTrades(staffId, assignedTrades), timeLimit);
+
     res.status(200).json({
-      message: `${numTrades} trades assigned to staff ${staffId}.`,
+      message: `${numTrades} trades assigned to staff ${staffId} with a time limit of ${timeLimitInMinutes || 0} minutes and ${timeLimitInHours || 0} hours.`,
     });
   } catch (error) {
     console.error('Error assigning trades manually:', error);
@@ -304,6 +399,34 @@ const assignTradesToStaffManually = async (req, res) => {
     });
   }
 };
+
+
+// Function to check for expired trades
+const checkForExpiredTrades = async (staffId, assignedTrades) => {
+  const staffRef = db.collection('staff').doc(staffId);
+  const staffDoc = await staffRef.get();
+
+  if (staffDoc.exists) {
+    const trades = staffDoc.data().assignedTrades || [];
+
+    const expiredTrades = trades.filter(trade => {
+      return trade.expirationTime < Date.now() && !trade.isPaid; // Check if trade is expired and not paid
+    });
+
+    // Update the markedAt object and isPaid for expired trades
+    const batch = db.batch();
+    expiredTrades.forEach(trade => {
+      const tradeRef = db.collection('trades').doc(trade.trade_hash); // Assuming trade_hash is the document ID
+      batch.update(tradeRef, {
+        markedAt: 'expired', 
+        isPaid: true, // Mark as paid
+      });
+    });
+
+    await batch.commit();
+  }
+};
+
 
 // Function to assign a trade from unassignedTrades when staff becomes free
 
