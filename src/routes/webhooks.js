@@ -365,11 +365,12 @@ const assignTradesToStaffManually = async (req, res) => {
     // Assign the trades to the staff
     const assignedTrades = unassignedTrades.map(trade => ({
       trade_hash: trade.trade_hash,
-      fiat_amount_requested: trade.fiat_amount_requested,
+      fiat_amount_requested: Math.floor(parseFloat(trade.fiat_amount_requested)), // Remove decimals
       isPaid: false,
       assignedAt: new Date(),
       expirationTime: expirationTime, // Set the expiration time for each trade in milliseconds
     }));
+    
 
     // Update the staff document with the assigned trades
     await staffRef.update({
