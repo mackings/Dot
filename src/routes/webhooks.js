@@ -743,14 +743,17 @@ router.post('/trade/update', async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'No trades assigned to this staff.' });
     }
 
-    // Find the trade based on the closest match to fiat_amount_requested
+    // Extract the first two digits of the amountPaid for comparison
+    const amountPaidFirstTwoDigits = amountPaid.toString().substring(0, 2);
+
+    // Find the trade based on the first two digits of fiat_amount_requested
     let tradeToUpdate = assignedTrades.find(trade => {
-      const requestedAmount = parseFloat(trade.fiat_amount_requested); // Convert to float for comparison
-      return Math.abs(parseFloat(amountPaid) - requestedAmount) < 1; // Match trade if amountPaid is close to requested
+      const requestedFirstTwoDigits = trade.fiat_amount_requested.substring(0, 2);
+      return amountPaidFirstTwoDigits === requestedFirstTwoDigits;
     });
 
     if (!tradeToUpdate) {
-      return res.status(404).json({ status: 'error', message: 'No trade available to update.' });
+      return res.status(404).json({ status: 'error', message: 'No trade found based on the amount provided.' });
     }
 
     // Flag the trade if the amountPaid doesn't exactly match the fiat_amount_requested
