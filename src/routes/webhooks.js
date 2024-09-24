@@ -308,7 +308,6 @@ const assignTradeToStaff = async (tradePayload) => {
 
 
 const assignTradesToStaffManually = async (req, res) => {
-  
   try {
     const { staffId, numberOfTrades, timeLimitInMinutes, timeLimitInHours } = req.body;
 
@@ -322,10 +321,10 @@ const assignTradesToStaffManually = async (req, res) => {
     // Calculate time limit in milliseconds
     let timeLimit = 0;
     if (timeLimitInMinutes) {
-      timeLimit += parseInt(timeLimitInMinutes) * 60 * 1000; 
+      timeLimit += parseInt(timeLimitInMinutes) * 60 * 1000; // Convert minutes to milliseconds
     }
     if (timeLimitInHours) {
-      timeLimit += parseInt(timeLimitInHours) * 60 * 60 * 1000;
+      timeLimit += parseInt(timeLimitInHours) * 60 * 60 * 1000; // Convert hours to milliseconds
     }
 
     // Validate time limit
@@ -360,8 +359,8 @@ const assignTradesToStaffManually = async (req, res) => {
       });
     });
 
-    // Calculate expiration time
-    const expirationTime = Date.now() + timeLimit; // Current time + time limit
+    // Calculate expiration time in milliseconds from now
+    const expirationTime = Date.now() + timeLimit; // Current time + time limit in milliseconds
 
     // Assign the trades to the staff
     const assignedTrades = unassignedTrades.map(trade => ({
@@ -369,9 +368,10 @@ const assignTradesToStaffManually = async (req, res) => {
       fiat_amount_requested: trade.fiat_amount_requested,
       isPaid: false,
       assignedAt: new Date(),
-      expirationTime: expirationTime, // Set the expiration time for each trade
+      expirationTime: expirationTime, // Set the expiration time for each trade in milliseconds
     }));
 
+    // Update the staff document with the assigned trades
     await staffRef.update({
       assignedTrades: admin.firestore.FieldValue.arrayUnion(...assignedTrades),
     });
@@ -386,7 +386,7 @@ const assignTradesToStaffManually = async (req, res) => {
     await batch.commit();
 
     // Set a timeout to check for expired trades
-    setTimeout(() => checkForExpiredTrades(staffId, assignedTrades), timeLimit);
+    setTimeout(() => checkForExpiredTrades(staffId), timeLimit);
 
     res.status(200).json({
       message: `${numTrades} trades assigned to staff ${staffId} with a time limit of ${timeLimitInMinutes || 0} minutes and ${timeLimitInHours || 0} hours.`,
@@ -400,32 +400,63 @@ const assignTradesToStaffManually = async (req, res) => {
   }
 };
 
-
 // Function to check for expired trades
-const checkForExpiredTrades = async (staffId, assignedTrades) => {
-  const staffRef = db.collection('staff').doc(staffId);
-  const staffDoc = await staffRef.get();
+const checkForExpiredTrades = async (staffId) => {
+  try {
+    const staffRef = db.collection('staff').doc(staffId);
+    const staffDoc = await staffRef.get();
 
-  if (staffDoc.exists) {
-    const trades = staffDoc.data().assignedTrades || [];
+    if (!staffDoc.exists) {
+      console.log(`Staff ${staffId} not found for trade expiration check.`);
+      return;
+    }
 
-    const expiredTrades = trades.filter(trade => {
-      return trade.expirationTime < Date.now() && !trade.isPaid; // Check if trade is expired and not paid
+    // Get the assigned trades for the staff
+    const assignedTrades = staffDoc.data().assignedTrades || [];
+
+    // Find expired trades
+    const expiredTrades = assignedTrades.filter(trade => {
+      return trade.expirationTime < Date.now() && !trade.isPaid; // Trade is expired and not paid
     });
 
-    // Update the markedAt object and isPaid for expired trades
-    const batch = db.batch();
-    expiredTrades.forEach(trade => {
-      const tradeRef = db.collection('trades').doc(trade.trade_hash); // Assuming trade_hash is the document ID
-      batch.update(tradeRef, {
-        markedAt: 'expired', 
-        isPaid: true, // Mark as paid
+    if (expiredTrades.length > 0) {
+      console.log(`Found ${expiredTrades.length} expired trades for staff ${staffId}`);
+
+      const batch = db.batch();
+      
+      expiredTrades.forEach(trade => {
+        // Update each trade in the 'staff' collection and in the 'trades' collection
+        const tradeRef = db.collection('trades').doc(trade.trade_hash); // Reference the trade by its trade_hash
+        const updatedTrade = {
+          markedAt: 'expired', // Mark the trade as expired
+          isPaid: true,        // Mark the trade as paid
+        };
+
+        // Update in the trades collection
+        batch.update(tradeRef, updatedTrade);
+
+        // Update the trade in the staff document (assignedTrades array)
+        const updatedAssignedTrades = assignedTrades.map(t =>
+          t.trade_hash === trade.trade_hash ? { ...t, ...updatedTrade } : t
+        );
+
+        // Update the assignedTrades array in the staff document
+        batch.update(staffRef, {
+          assignedTrades: updatedAssignedTrades,
+        });
       });
-    });
 
-    await batch.commit();
+      // Commit the batch update
+      await batch.commit();
+      console.log(`Expired trades updated for staff ${staffId}`);
+    } else {
+      console.log(`No expired trades found for staff ${staffId}`);
+    }
+  } catch (error) {
+    console.error(`Error checking for expired trades for staff ${staffId}:`, error);
   }
 };
+
 
 
 // Function to assign a trade from unassignedTrades when staff becomes free
