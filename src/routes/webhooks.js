@@ -725,7 +725,7 @@ router.post('/trade/mark', async (req, res) => {
 //Update dEtails 
 
 router.post('/trade/update', async (req, res) => {
-  const { staffId, amountPaid , name} = req.body;
+  const { staffId, amountPaid, name } = req.body;
 
   try {
     // Fetch the specific staff document by staffId
@@ -743,22 +743,27 @@ router.post('/trade/update', async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'No trades assigned to this staff.' });
     }
 
-    // Find the trade where amountPaid matches the fiat_amount_requested
+    // Find the trade based on the closest match to fiat_amount_requested
     let tradeToUpdate = assignedTrades.find(trade => {
       const requestedAmount = parseFloat(trade.fiat_amount_requested); // Convert to float for comparison
-      return parseFloat(amountPaid) === requestedAmount; // Compare as numbers
+      return Math.abs(parseFloat(amountPaid) - requestedAmount) < 1; // Match trade if amountPaid is close to requested
     });
 
     if (!tradeToUpdate) {
       return res.status(404).json({ status: 'error', message: 'No trade available to update.' });
     }
 
+    // Flag the trade if the amountPaid doesn't exactly match the fiat_amount_requested
+    const requestedAmount = parseFloat(tradeToUpdate.fiat_amount_requested);
+    const isFlagged = parseFloat(amountPaid) !== requestedAmount;
+
     // Update the trade details
     const tradeIndex = assignedTrades.indexOf(tradeToUpdate);
     assignedTrades[tradeIndex] = {
       ...tradeToUpdate,
-      name:name,
+      name: name,
       amountPaid: amountPaid, // Update amountPaid
+      flagged: isFlagged ? true : false // Flag trade if necessary
     };
 
     // Save the updated assigned trades back to Firestore
@@ -767,13 +772,14 @@ router.post('/trade/update', async (req, res) => {
     // Return a successful response
     res.json({
       status: 'success',
-      message: `Trade updated successfully with amountPaid = ${amountPaid}.`
+      message: `Trade updated successfully with amountPaid = ${amountPaid}. Trade flagged: ${isFlagged}.`
     });
   } catch (error) {
     console.error('Error updating trade details:', error);
     res.status(500).json({ status: 'error', message: 'Failed to update trade details.', error });
   }
 });
+
 
 
 
@@ -784,7 +790,9 @@ router.post('/assign/manual', assignTradesToStaffManually);
 
 // Statistics 
 
+
 router.get('/staff/trade-statistics', async (req, res) => {
+
   try {
     const cachedStaffData = await TradeStatistics.find();
     const cachedUnassignedTrades = await UnassignedTrades.findOne();
