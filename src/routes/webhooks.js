@@ -407,55 +407,45 @@ const checkForExpiredTrades = async (staffId) => {
     const staffDoc = await staffRef.get();
 
     if (!staffDoc.exists) {
-      console.log(`Staff ${staffId} not found for trade expiration check.`);
+      console.log(`Staff ${staffId} not found.`);
       return;
     }
 
-    // Get the assigned trades for the staff
-    const assignedTrades = staffDoc.data().assignedTrades || [];
+    const trades = staffDoc.data().assignedTrades || [];
 
-    // Find expired trades
-    const expiredTrades = assignedTrades.filter(trade => {
-      return trade.expirationTime < Date.now() && !trade.isPaid; // Trade is expired and not paid
+    const expiredTrades = trades.filter(trade => {
+      return trade.expirationTime < Date.now() && !trade.isPaid; // Check if trade is expired and not paid
     });
 
-    if (expiredTrades.length > 0) {
-      console.log(`Found ${expiredTrades.length} expired trades for staff ${staffId}`);
-
-      const batch = db.batch();
-      
-      expiredTrades.forEach(trade => {
-        // Update each trade in the 'staff' collection and in the 'trades' collection
-        const tradeRef = db.collection('trades').doc(trade.trade_hash); // Reference the trade by its trade_hash
-        const updatedTrade = {
-          markedAt: 'expired', // Mark the trade as expired
-          isPaid: true,        // Mark the trade as paid
-        };
-
-        // Update in the trades collection
-        batch.update(tradeRef, updatedTrade);
-
-        // Update the trade in the staff document (assignedTrades array)
-        const updatedAssignedTrades = assignedTrades.map(t =>
-          t.trade_hash === trade.trade_hash ? { ...t, ...updatedTrade } : t
-        );
-
-        // Update the assignedTrades array in the staff document
-        batch.update(staffRef, {
-          assignedTrades: updatedAssignedTrades,
-        });
-      });
-
-      // Commit the batch update
-      await batch.commit();
-      console.log(`Expired trades updated for staff ${staffId}`);
-    } else {
-      console.log(`No expired trades found for staff ${staffId}`);
+    if (expiredTrades.length === 0) {
+      console.log(`No expired trades found for staff ${staffId}.`);
+      return;
     }
+
+    console.log(`Found ${expiredTrades.length} expired trades for staff ${staffId}.`);
+
+    // Update only the expired trades in the assignedTrades array
+    const updatedTrades = trades.map(trade => {
+      if (trade.expirationTime < Date.now() && !trade.isPaid) {
+        return {
+          ...trade,
+          isPaid: true,       // Mark as paid
+          markedAt: 'expired' // Mark trade as expired
+        };
+      }
+      return trade;
+    });
+
+    await staffRef.update({
+      assignedTrades: updatedTrades
+    });
+
+    console.log(`Successfully updated expired trades for staff ${staffId}.`);
   } catch (error) {
     console.error(`Error checking for expired trades for staff ${staffId}:`, error);
   }
 };
+
 
 
 
