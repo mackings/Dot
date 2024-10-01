@@ -103,11 +103,9 @@ const newStaffDetails = {
   role: 'Payer',
 };
 
-addNewStaff('Kee', newStaffDetails);
+addNewStaff('Paxful', newStaffDetails);
 
 //Assign Trades to Staff Automatically
-
-
 
 const assignTradeToStaff = async (tradePayload) => {
   
@@ -158,6 +156,7 @@ const assignTradeToStaff = async (tradePayload) => {
         trade_hash: tradePayload.trade_hash,
         fiat_amount_requested: tradePayload.fiat_amount_requested,
         assignedAt: assignedAt, // Assign the manual timestamp here
+        account:tradePayload.buyer_name,
         isPaid: false
       }),
     });
@@ -527,7 +526,7 @@ const saveTradeToFirestore = async (payload, collection) => {
 
    await assignTradeToStaff(payload);
 
-    console.log(`Trade ${payload.trade_hash} saved to Firestore and assigned.`);
+    console.log(`Paxful Trade ${payload.trade_hash} saved to Firestore and assigned`);
   } catch (error) {
     console.error('Error saving the trade to Firestore:', error);
   }
