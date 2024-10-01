@@ -83,7 +83,7 @@ const db = admin.firestore();
 
 const addNewStaff = async (staffId, staffDetails) => {
   try {
-    const staffRef = db.collection('staff').doc(staffId);
+    const staffRef = db.collection('Allstaff').doc(staffId);
     
     await staffRef.set({
       ...staffDetails, 
