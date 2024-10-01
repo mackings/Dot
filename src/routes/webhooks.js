@@ -125,7 +125,7 @@ const assignTradeToStaff = async (tradePayload) => {
 
     if (eligibleStaff.length === 0) {
 
-      console.log('Dropping Trades for the Best >>>');
+      console.log('Paxful Dropping Trades for the Best >>>');
       
       // Save the trade in the unassignedTrades collection
       await db.collection('manualunassigned').add({
@@ -156,7 +156,8 @@ const assignTradeToStaff = async (tradePayload) => {
         trade_hash: tradePayload.trade_hash,
         fiat_amount_requested: tradePayload.fiat_amount_requested,
         assignedAt: assignedAt, // Assign the manual timestamp here
-        account:tradePayload.buyer_name,
+        handle:tradePayload.buyer_name,
+        account:"Paxful",
         isPaid: false
       }),
     });
@@ -332,7 +333,7 @@ const assignTradesToStaffManually = async (req, res) => {
     }
 
     // Fetch the staff document
-    const staffRef = db.collection('staff').doc(staffId);
+    const staffRef = db.collection('Allstaff').doc(staffId);
     const staffDoc = await staffRef.get();
 
     if (!staffDoc.exists) {
@@ -340,7 +341,7 @@ const assignTradesToStaffManually = async (req, res) => {
     }
 
     // Fetch the specified number of unassigned trades
-    const unassignedTradesSnapshot = await db.collection('trades')
+    const unassignedTradesSnapshot = await db.collection('manualsystem')
       .orderBy('timestamp')
       .limit(numTrades)
       .get();
@@ -380,7 +381,7 @@ const assignTradesToStaffManually = async (req, res) => {
     // Remove the assigned trades from the unassignedTrades collection
     const batch = db.batch();
     unassignedTrades.forEach(trade => {
-      const unassignedTradeRef = db.collection('trades').doc(trade.id);
+      const unassignedTradeRef = db.collection('manualsystem').doc(trade.id);
       batch.delete(unassignedTradeRef);
     });
 
