@@ -809,7 +809,7 @@ router.post('/trade/mark', async (req, res) => {
 
   try {
     // Fetch all staff data
-    const staffSnapshot = await admin.firestore().collection('staff').get();
+    const staffSnapshot = await admin.firestore().collection('Allstaff').get();
     let staffToUpdate;
 
     // Loop through all staff documents to find the trade
@@ -830,7 +830,7 @@ router.post('/trade/mark', async (req, res) => {
     }
 
     // Reference the staff document for update
-    const staffRef = admin.firestore().collection('staff').doc(staffToUpdate.docId);
+    const staffRef = admin.firestore().collection('Allstaff').doc(staffToUpdate.docId);
     const staffDoc = await staffRef.get();
     const assignedTrades = staffDoc.data().assignedTrades;
 
