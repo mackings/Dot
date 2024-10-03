@@ -33,7 +33,7 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
-mongoose.connect('mongodb+srv://trainer:trainer@cluster0.1aivf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', {
+mongoose.connect('mongodb+srv://bibuain:bibuain@cluster0.rcbwm.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', {
  // useNewUrlParser: true,
   //useUnifiedTopology: true
 }).then(() => {
@@ -110,6 +110,7 @@ addNewStaff('Paxful', newStaffDetails);
 
 
 const assignTradeToStaff = async (tradePayload) => {
+
   try {
     const staffSnapshot = await db.collection('Allstaff').get();
     let eligibleStaff = [];
@@ -125,7 +126,7 @@ const assignTradeToStaff = async (tradePayload) => {
     });
 
     if (eligibleStaff.length === 0) {
-      console.log('Paxful Dropping Noones Trades for the Best >>>>>>>>>>>>>>>>>');
+      console.log('Paxful Dropping Noones Trades for the Best >>>>>>>>>>>>>>>>');
   
       // Save the trade in the unassignedTrades collection
       await db.collection('manualunassigned').add({
@@ -148,7 +149,6 @@ const assignTradeToStaff = async (tradePayload) => {
     const assignedStaffId = staffWithLeastTrades.id; // This is a Firestore string ID
     const staffRef = db.collection('Allstaff').doc(assignedStaffId);
     const assignedAt = new Date();
-    const staffData = staffWithLeastTrades.data();
 
     // Now update the assignedTrades array in Firestore
     await staffRef.update({
@@ -162,7 +162,7 @@ const assignTradeToStaff = async (tradePayload) => {
       }),
     });
 
-    // Use the actual MongoDB username from Firestore's staff data
+
     const tradeData = {
       account: "Paxful",
       amountPaid: null, // Not available at assignment
@@ -171,7 +171,7 @@ const assignTradeToStaff = async (tradePayload) => {
       handle: tradePayload.buyer_name,
       isPaid: false,
       markedAt: null,
-      name: staffData.username, // Ensure the username is used here
+      name: "Macs",
       trade_hash: tradePayload.trade_hash
     };
     
@@ -180,6 +180,7 @@ const assignTradeToStaff = async (tradePayload) => {
       { $push: { assignedTrades: tradeData } }, // Push the trade data to the assignedTrades array
       { new: true } // Return the updated document
     );
+    
 
     console.log(`Paxful Trade ${tradePayload.trade_hash} assigned to ${assignedStaffId}.`);
 
@@ -187,7 +188,6 @@ const assignTradeToStaff = async (tradePayload) => {
     console.error('Error assigning trade to staff:', error);
   }
 };
-
 
 // const assignTradeToStaff = async (tradePayload) => {
   
