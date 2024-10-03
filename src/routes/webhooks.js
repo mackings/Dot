@@ -126,7 +126,7 @@ const assignTradeToStaff = async (tradePayload) => {
     });
 
     if (eligibleStaff.length === 0) {
-      console.log('Noones Dropping Noones Trades for the Best >>>>>>>>>>>>>>>>');
+      console.log('Paxful Dropping Noones Trades for the Best >>>>>>>>>>>>>>>>');
   
       // Save the trade in the unassignedTrades collection
       await db.collection('manualunassigned').add({
@@ -157,7 +157,7 @@ const assignTradeToStaff = async (tradePayload) => {
         fiat_amount_requested: tradePayload.fiat_amount_requested,
         assignedAt: assignedAt,
         handle: tradePayload.buyer_name,
-        account: "Noones",
+        account: "Paxful",
         isPaid: false
       }),
     });
@@ -182,7 +182,7 @@ const assignTradeToStaff = async (tradePayload) => {
     );
     
 
-    console.log(`Noones Trade ${tradePayload.trade_hash} assigned to ${assignedStaffId}.`);
+    console.log(`Paxful Trade ${tradePayload.trade_hash} assigned to ${assignedStaffId}.`);
 
   } catch (error) {
     console.error('Error assigning trade to staff:', error);
