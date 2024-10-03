@@ -110,7 +110,6 @@ addNewStaff('Paxful', newStaffDetails);
 
 
 const assignTradeToStaff = async (tradePayload) => {
-
   try {
     const staffSnapshot = await db.collection('Allstaff').get();
     let eligibleStaff = [];
@@ -162,7 +161,8 @@ const assignTradeToStaff = async (tradePayload) => {
       }),
     });
 
-
+    // Retrieve the name from the staff document
+    const staffData = staffWithLeastTrades.data();
     const tradeData = {
       account: "Paxful",
       amountPaid: null, // Not available at assignment
@@ -171,23 +171,27 @@ const assignTradeToStaff = async (tradePayload) => {
       handle: tradePayload.buyer_name,
       isPaid: false,
       markedAt: null,
-      name: "Macs",
+      name: staffData.name, // Use the name from the staff data
       trade_hash: tradePayload.trade_hash
     };
     
-    await Allstaff.findOneAndUpdate(
+    const updatedStaff = await Allstaff.findOneAndUpdate(
       { username: tradeData.name }, // Matching with the username field
       { $push: { assignedTrades: tradeData } }, // Push the trade data to the assignedTrades array
       { new: true } // Return the updated document
     );
-    
 
-    console.log(`Paxful Trade ${tradePayload.trade_hash} assigned to ${assignedStaffId}.`);
+    if (!updatedStaff) {
+      console.error('Trade assignment failed in MongoDB. Staff not found with username:', tradeData.name);
+    } else {
+      console.log(`Paxful Trade ${tradePayload.trade_hash} assigned to ${assignedStaffId}.`);
+    }
 
   } catch (error) {
     console.error('Error assigning trade to staff:', error);
   }
 };
+
 
 // const assignTradeToStaff = async (tradePayload) => {
   
