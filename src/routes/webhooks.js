@@ -754,10 +754,10 @@ router.get('/staff/:staffId/history', async (req, res) => {
 // router.post('/trade/mark', async (req, res) => {
 //   const { markedAt, trade_hash, name, amountPaid } = req.body;
 
-//   try {
-//     // Fetch all staff data
-//     const staffSnapshot = await admin.firestore().collection('staff').get();
-//     let staffToUpdate;
+  try {
+    // Fetch all staff data
+    const staffSnapshot = await admin.firestore().collection('Allstaff').get();
+    let staffToUpdate;
 
 //     // Loop through all staff documents to find the trade
 //     staffSnapshot.docs.forEach(doc => {
@@ -780,6 +780,10 @@ router.get('/staff/:staffId/history', async (req, res) => {
 //     const staffRef = admin.firestore().collection('staff').doc(staffToUpdate.docId);
 //     const staffDoc = await staffRef.get();
 //     const assignedTrades = staffDoc.data().assignedTrades;
+    // Reference the staff document for update
+    const staffRef = admin.firestore().collection('Allstaff').doc(staffToUpdate.docId);
+    const staffDoc = await staffRef.get();
+    const assignedTrades = staffDoc.data().assignedTrades;
 
 //     // Get the specific trade to update
 //     const tradeToUpdate = assignedTrades[staffToUpdate.tradeIndex];
