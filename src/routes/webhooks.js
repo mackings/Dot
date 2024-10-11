@@ -630,7 +630,7 @@ router.post('/paxful/addstaff', async (req, res) => {
   const { staffId, staffDetails } = req.body;
 
   try {
-    await db.collection('staff').doc(staffId).set({
+    await db.collection('Traineestaff').doc(staffId).set({
       ...staffDetails,
       assignedTrades: [],
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -666,7 +666,7 @@ router.get('/staff/:staffId/history', async (req, res) => {
 
   try {
     // Get the staff document
-    const staffDoc = await admin.firestore().collection('staff').doc(staffId).get();
+    const staffDoc = await admin.firestore().collection('Traineestaff').doc(staffId).get();
 
     if (!staffDoc.exists) {
       return res.status(404).json({ status: 'error', message: 'Staff not found.' });
@@ -704,7 +704,7 @@ router.post('/trade/update', async (req, res) => {
 
   try {
     // Fetch the specific staff document by staffId
-    const staffRef = admin.firestore().collection('staff').doc(staffId);
+    const staffRef = admin.firestore().collection('Traineestaff').doc(staffId);
     const staffDoc = await staffRef.get();
 
     if (!staffDoc.exists) {
@@ -788,7 +788,8 @@ router.get('/staff/trade-statistics', async (req, res) => {
       });
     }
 
-    const staffSnapshot = await db.collection('staff').limit(500).get();
+
+    const staffSnapshot = await db.collection('Traineestaff').limit(500).get();
     const staffData = [];
     let totalGlobalFiatRequested = 0;
     let totalGlobalAmountPaid = 0;
@@ -1005,6 +1006,7 @@ router.post('/paxful/paxful/rates', async (req, res) => {
     res.status(500).json({ status: 'error', message: 'Failed to fetch price from Paxful', error });
   }
 });
+
 
 
 router.post('/paxful/binance/rates', async (req, res) => {
