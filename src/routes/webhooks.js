@@ -84,7 +84,7 @@ const db = admin.firestore();
 
 const addNewStaff = async (staffId, staffDetails) => {
   try {
-    const staffRef = db.collection('Allstaff').doc(staffId);
+    const staffRef = db.collection('Traineestaff').doc(staffId);
     
     await staffRef.set({
       ...staffDetails, 
@@ -111,7 +111,7 @@ addNewStaff('Paxful', newStaffDetails);
 
 const assignTradeToStaff = async (tradePayload) => {
   try {
-    const staffSnapshot = await db.collection('Allstaff').get();
+    const staffSnapshot = await db.collection('Traineestaff').get();
     let eligibleStaff = [];
 
     // Filter out staff with pending unpaid trades and those not clocked in
@@ -146,7 +146,7 @@ const assignTradeToStaff = async (tradePayload) => {
     });
 
     const assignedStaffId = staffWithLeastTrades.id; // This is a Firestore string ID
-    const staffRef = db.collection('Allstaff').doc(assignedStaffId);
+    const staffRef = db.collection('Traineestaff').doc(assignedStaffId);
     const assignedAt = new Date();
 
     // Now update the assignedTrades array in Firestore
@@ -199,70 +199,6 @@ const assignTradeToStaff = async (tradePayload) => {
 };
 
 
-
-// const assignTradeToStaff = async (tradePayload) => {
-  
-//   try {
-//     const staffSnapshot = await db.collection('Allstaff').get();
-//     let eligibleStaff = [];
-
-//     // Filter out staff with pending unpaid trades
-//     staffSnapshot.docs.forEach(doc => {
-//       const staffData = doc.data();
-//       const hasPendingTrades = staffData.assignedTrades.some(trade => !trade.isPaid);
-
-//       if (!hasPendingTrades) {
-//         eligibleStaff.push(doc);
-//       }
-//     });
-
-//     if (eligibleStaff.length === 0) {
-
-//       console.log('Paxful Dropping Trades for the Best >>>');
-      
-//       // Save the trade in the unassignedTrades collection
-//       await db.collection('manualunassigned').add({
-//         trade_hash: tradePayload.trade_hash,
-//         fiat_amount_requested: tradePayload.fiat_amount_requested,
-//         timestamp: admin.firestore.FieldValue.serverTimestamp(),
-//       });
-
-//       return;
-//     }
-
-//     // Find the staff with the least number of trades
-//     let staffWithLeastTrades = eligibleStaff[0];
-//     eligibleStaff.forEach(doc => {
-//       if (doc.data().assignedTrades.length < staffWithLeastTrades.data().assignedTrades.length) {
-//         staffWithLeastTrades = doc;
-//       }
-//     });
-
-//     const assignedStaff = staffWithLeastTrades.id;
-//     const staffRef = db.collection('Allstaff').doc(assignedStaff);
-//     const assignedAt = new Date();
-
-//     // Now update the assignedTrades array without using serverTimestamp() inside arrayUnion
-
-//     await staffRef.update({
-//       assignedTrades: admin.firestore.FieldValue.arrayUnion({
-//         trade_hash: tradePayload.trade_hash,
-//         fiat_amount_requested: tradePayload.fiat_amount_requested,
-//         assignedAt: assignedAt, // Assign the manual timestamp here
-//         handle:tradePayload.buyer_name,
-//         account:"Paxful",
-//         isPaid: false
-//       }),
-//     });
-
-//    console.log(`Paxful Trade ${tradePayload.trade_hash} assigned to ${assignedStaff}.`);
-  
-//   } catch (error) {
-//     console.error('Error assigning trade to staff:', error);
-//   }
-// };
-
-
 //Assign Trades Maunally
 
 const assignTradesToStaffManually = async (req, res) => {
@@ -291,7 +227,7 @@ const assignTradesToStaffManually = async (req, res) => {
     }
 
     // Fetch the staff document
-    const staffRef = db.collection('Allstaff').doc(staffId);
+    const staffRef = db.collection('Traineestaff').doc(staffId);
     const staffDoc = await staffRef.get();
 
     if (!staffDoc.exists) {
@@ -406,7 +342,6 @@ const checkForExpiredTrades = async (staffId) => {
   }
 };
 
-
 // Function to assign a trade from unassignedTrades when staff becomes free
 
 const assignUnassignedTrade = async () => {
@@ -491,6 +426,7 @@ const saveTradeToFirestore = async (payload, collection) => {
   }
 };
 
+
 const TrainesaveTradeToFirestore = async (payload, collection) => {
 
   try {
@@ -508,6 +444,7 @@ const TrainesaveTradeToFirestore = async (payload, collection) => {
     console.error('Error saving the trade to Firestore:', error);
   }
 };
+
 
 
 const saveChatMessageToFirestore = async (payload, messages) => {
@@ -538,7 +475,7 @@ const saveChatMessageToFirestore = async (payload, messages) => {
 
 const TrainsaveChatMessageToFirestore = async (payload, messages) => {
   try {
-    const docRef = db.collection('tradeMessages').doc(payload.trade_hash);
+    const docRef = db.collection('maunualmessages').doc(payload.trade_hash);
     await db.runTransaction(async (transaction) => {
       const doc = await transaction.get(docRef);
       if (!doc.exists) {
@@ -570,7 +507,7 @@ const handleTradeStarted = async (payload, paxfulApi) => {
     console.log(`Trade Invocation: ${response}`);
 
     await saveTradeToFirestore(payload, 'manualsystem');
-    //await TrainesaveTradeToFirestore(payload,'trades');
+   // await TrainesaveTradeToFirestore(payload,'trades');
     const message = "Hello..";
 
     await paxfulApi.invoke('/paxful/v1/trade-chat/post', {
@@ -761,75 +698,8 @@ router.get('/staff/:staffId/history', async (req, res) => {
 
 
 
-
-// router.post('/trade/mark', async (req, res) => {
-//   const { markedAt, trade_hash, name, amountPaid } = req.body;
-
-  // try {
-  //   // Fetch all staff data
-  //   const staffSnapshot = await admin.firestore().collection('Allstaff').get();
-  //   let staffToUpdate;
-
-//     // Loop through all staff documents to find the trade
-//     staffSnapshot.docs.forEach(doc => {
-//       const staffData = doc.data();
-//       const tradeIndex = staffData.assignedTrades.findIndex(trade => trade.trade_hash === trade_hash);
-
-//       if (tradeIndex !== -1) {
-//         staffToUpdate = {
-//           docId: doc.id,
-//           tradeIndex
-//         };
-//       }
-//     });
-
-//     if (!staffToUpdate) {
-//       return res.status(404).json({ status: 'error', message: 'Trade not found.' });
-//     }
-
-//     // Reference the staff document for update
-//     const staffRef = admin.firestore().collection('staff').doc(staffToUpdate.docId);
-//     const staffDoc = await staffRef.get();
-//     const assignedTrades = staffDoc.data().assignedTrades;
-    // Reference the staff document for update
-    // const staffRef = admin.firestore().collection('Allstaff').doc(staffToUpdate.docId);
-    // const staffDoc = await staffRef.get();
-    // const assignedTrades = staffDoc.data().assignedTrades;
-
-//     // Get the specific trade to update
-//     const tradeToUpdate = assignedTrades[staffToUpdate.tradeIndex];
-
-//     // Mark the trade as paid and update markedAt
-//     tradeToUpdate.isPaid = true;
-//     tradeToUpdate.markedAt = markedAt;
-
-//     // Explicitly update name and amountPaid for the correct trade (only if provided)
-//     if (name) {
-//       tradeToUpdate.name = name; // Update name even if it exists
-//     }
-
-//     if (amountPaid) {
-//       tradeToUpdate.amountPaid = amountPaid; // Update amountPaid even if it exists
-//     }
-
-//     // Save the updated assignedTrades array back to Firestore
-//     await staffRef.update({ assignedTrades });
-
-//     res.json({
-//       status: 'success',
-//       message: `Trade marked as paid successfully with markedAt time: ${markedAt}.`
-//     });
-//   } catch (error) {
-//     console.error('Error marking trade as paid:', error);
-//     res.status(500).json({ status: 'error', message: 'Failed to mark trade as paid.', error });
-//   }
-// });
-
-
-
-//Update dEtails 
-
 router.post('/trade/update', async (req, res) => {
+  
   const { staffId, amountPaid, name } = req.body;
 
   try {
