@@ -111,7 +111,7 @@ addNewStaff('Paxful', newStaffDetails);
 
 const assignTradeToStaff = async (tradePayload) => {
   try {
-    const staffSnapshot = await db.collection('Traineestaff').get();
+    const staffSnapshot = await db.collection('Allstaff').get();
     let eligibleStaff = [];
 
     // Filter out staff with pending unpaid trades and those not clocked in
@@ -125,7 +125,7 @@ const assignTradeToStaff = async (tradePayload) => {
     });
 
     if (eligibleStaff.length === 0) {
-      console.log('Paxful Dropping Noones Trades for the Best >>>>>>>>>>>>>>>>');
+      console.log('Paxful Dropping Trades for the Best >>>>>>>>>>>>>>>>');
   
       // Save the trade in the unassignedTrades collection
       await db.collection('manualunassigned').add({
@@ -146,7 +146,7 @@ const assignTradeToStaff = async (tradePayload) => {
     });
 
     const assignedStaffId = staffWithLeastTrades.id; // This is a Firestore string ID
-    const staffRef = db.collection('Traineestaff').doc(assignedStaffId);
+    const staffRef = db.collection('Allstaff').doc(assignedStaffId);
     const assignedAt = new Date();
 
     // Now update the assignedTrades array in Firestore
