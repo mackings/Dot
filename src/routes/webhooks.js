@@ -157,7 +157,8 @@ const assignTradeToStaff = async (tradePayload) => {
         assignedAt: assignedAt,
         handle: tradePayload.buyer_name,
         account: "Paxful",
-        isPaid: false
+        isPaid: false,
+        seller_name:tradePayload.seller_name
       }),
     });
 
@@ -173,13 +174,9 @@ const assignTradeToStaff = async (tradePayload) => {
       markedAt: null,
       name: staffData.name, // Use the name from the staff data
       trade_hash: tradePayload.trade_hash,
-      seller_name:tradePayload.seller_name
+      
     };
 
-    console.log('Staff Data Name', staffData.name);
-    
-    // Log the username before querying MongoDB
-    console.log('Attempting to find staff in MongoDB with username:', staffData.username);
 
     
     const updatedStaff = await Allstaff.findOneAndUpdate(
