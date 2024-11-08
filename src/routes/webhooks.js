@@ -172,7 +172,8 @@ const assignTradeToStaff = async (tradePayload) => {
       isPaid: false,
       markedAt: null,
       name: staffData.name, // Use the name from the staff data
-      trade_hash: tradePayload.trade_hash
+      trade_hash: tradePayload.trade_hash,
+      seller_name:tradePayload.seller_name
     };
 
     console.log('Staff Data Name', staffData.name);
