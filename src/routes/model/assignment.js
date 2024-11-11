@@ -9,7 +9,8 @@ const tradeDetailsSchema = new mongoose.Schema({
     isPaid: { type: Boolean, default: false },
     markedAt: { type: String, default: null },
     name: { type: String, required: true },
-    trade_hash: { type: String, required: true }
+    trade_hash: { type: String, required: true },
+    analytics: { type: Array, required: true }
   });
   
   const staffSchema = new mongoose.Schema({
