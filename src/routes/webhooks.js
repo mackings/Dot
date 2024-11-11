@@ -158,7 +158,8 @@ const assignTradeToStaff = async (tradePayload) => {
         handle: tradePayload.buyer_name,
         account: "Paxful",
         isPaid: false,
-        seller_name:tradePayload.seller_name
+        seller_name:tradePayload.seller_name,
+        analytics:tradePayload
       }),
     });
 
@@ -174,6 +175,7 @@ const assignTradeToStaff = async (tradePayload) => {
       markedAt: null,
       name: staffData.name, // Use the name from the staff data
       trade_hash: tradePayload.trade_hash,
+      analytics:tradePayload
       
     };
 
