@@ -128,11 +128,18 @@ const assignTradeToStaff = async (tradePayload) => {
       console.log('Paxful Dropping Trades for the Best >>>>>>>>>>>>>>>>');
   
       // Save the trade in the unassignedTrades collection
-      await db.collection('manualunassigned').add({
-        trade_hash: tradePayload.trade_hash,
-        fiat_amount_requested: tradePayload.fiat_amount_requested,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      // await db.collection('manualunassigned').add({
+      //   trade_hash: tradePayload.trade_hash,
+      //   fiat_amount_requested: tradePayload.fiat_amount_requested,
+      //   timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      // });
+
+      // Save the entire tradePayload in the manualunassigned collection
+await db.collection('manualunassigned').add({
+  ...tradePayload, 
+  timestamp: admin.firestore.FieldValue.serverTimestamp(), // Add/override specific fields
+});
+
   
       return;
     }
@@ -178,7 +185,6 @@ const assignTradeToStaff = async (tradePayload) => {
       analytics:tradePayload
       
     };
-
 
     
     const updatedStaff = await Allstaff.findOneAndUpdate(
