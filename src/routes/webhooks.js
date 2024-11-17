@@ -136,8 +136,17 @@ const assignTradeToStaff = async (tradePayload) => {
 
       // Save the entire tradePayload in the manualunassigned collection
 await db.collection('manualunassigned').add({
-  ...tradePayload, 
-  timestamp: admin.firestore.FieldValue.serverTimestamp(), // Add/override specific fields
+
+  account:"Paxful",
+  analytics:tradePayload,
+  isPaid: false, 
+  assignedAt: admin.firestore.Timestamp.now(), 
+  trade_hash:tradePayload.trade_hash,
+  seller_name:tradePayload.seller_name,
+  handle:tradePayload.buyer_name,
+  fiat_amount_requested:tradePayload.fiat_amount_requested
+  // ...tradePayload, 
+  // timestamp: admin.firestore.FieldValue.serverTimestamp(), // Add/override specific fields
 });
 
   
