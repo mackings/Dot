@@ -678,6 +678,7 @@ const sendMessage = async (username, tradeHash, message) => {
 
 // Webhook Handlers
 const handlers = {
+
   'trade.started': async (payload, tradesHandler, paxfulApi) => {
     await handleTradeStarted(payload, paxfulApi);
     const { buyer_name: username, trade_hash: tradeHash } = payload;
@@ -717,6 +718,14 @@ const handlers = {
       await sendMessage(username, tradeHash, 'Bank details received');
     }
   },
+
+
+  'trade.cancelled_or_expired': async (payload, tradesHandler, paxfulApi) => {
+    const { buyer_name: username, trade_hash: tradeHash } = payload;
+    if (!username || !tradeHash) return console.warn('Invalid payload for trade.started');
+    await sendMessage(username, tradeHash, 'We hate to see you go, We trade next time!');
+  },
+
 
   'trade.paid': async (payload) => {
     console.log('Processing trade.paid webhook:', payload);
