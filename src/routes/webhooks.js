@@ -16,6 +16,8 @@ const privateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
 const mongoose = require('mongoose');
 const Allstaff = require("./model/assignment");
 
+
+
 const serviceAccount = {
   type: "service_account",
   project_id: process.env.FIREBASE_PROJECT_ID,
@@ -56,9 +58,6 @@ const TradeStatisticsSchema = new mongoose.Schema({
   flaggedTrades: Number,  // New field to track total flagged trades
   lastUpdated: { type: Date, default: Date.now }
 });
-
-
-
 
 
 // Schema to store overall mispayment information (expectedTotal, actualTotal, and difference)
@@ -436,6 +435,9 @@ const assignUnassignedTrade = async () => {
 };
 
 
+
+
+
 const saveTradeToFirestore = async (payload, collection) => {
 
   try {
@@ -592,12 +594,98 @@ const handleChatMessageReceived = async (payload, paxfulApi, ctx) => {
 };
 
 
-const handlers = {
 
-  'trade.started': async (payload, tradesHandler, paxfulApi) => {
-    console.log('New trade started webhook received:', payload);
-    await handleTradeStarted(payload, paxfulApi);
+
+// Define accounts and token management
+const accounts = [
+  {
+    clientId: 'E53VOgIDNN7bOglY12HrSSTZMrf33pFI6lDSVBkQmaLNVz11',
+    clientSecret: 'EmfnR8buyg2N9ILhGWtm1MDOzItRpFV3sbmBftdklIM480tn',
+    username: 'boompay'
   },
+  {
+    clientId: 'PrjznBZL5BidL6cNxy3uMCZZDr1IibTPC8jCFxEBgmkhScRT',
+    clientSecret: '7OBdAwpIB07gCDZKOCKAeoTIgHmqCj6vp10SFgV6vSD6UfeX',
+    username: 'Mexc'
+  },
+];
+
+
+const tokens = {};
+
+const cleanupTokens = () => {
+  const validUsernames = accounts.map(acc => acc.username.toLowerCase());
+  Object.keys(tokens).forEach(username => {
+    if (!validUsernames.includes(username.toLowerCase())) {
+      console.log(`Removing token for old username: ${username}`);
+      delete tokens[username];
+    }
+  });
+};
+
+const getnoonesToken = async (clientId, clientSecret) => {
+  const tokenEndpoint = 'https://auth.paxful.com/oauth2/token';
+  const response = await axios.post(
+    tokenEndpoint,
+    querystring.stringify({
+      grant_type: 'client_credentials',
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+  );
+  return response.data.access_token;
+};
+
+const getTokenForAccount = async (username) => {
+  cleanupTokens();
+  const account = accounts.find(acc => acc.username.toLowerCase() === username.toLowerCase());
+  if (!account) throw new Error(`Invalid username: ${username}`);
+
+  const now = Date.now();
+  if (tokens[username] && tokens[username].expiry > now) {
+    return tokens[username].token;
+  }
+
+  const token = await getnoonesToken(account.clientId, account.clientSecret);
+  tokens[username] = { token, expiry: now + 5 * 60 * 60 * 1000 }; // 5-hour expiry
+  return token;
+};
+
+const sendMessage = async (username, tradeHash, message) => {
+  try {
+    const token = await getTokenForAccount(username);
+    const apiUrl = 'https://api.paxful.com/paxful/v1/trade-chat/post';
+    const response = await axios.post(
+      apiUrl,
+      new URLSearchParams({ trade_hash: tradeHash, message }),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    console.log(`Message sent: ${message}`);
+  } catch (error) {
+    if (error.response) {
+      console.error(`Error sending message:`, error.response.data);
+    } else {
+      console.error(`Error sending message:`, error.message);
+    }
+  }
+};
+
+// Webhook Handlers
+const handlers = {
+  'trade.started': async (payload, tradesHandler, paxfulApi) => {
+    await handleTradeStarted(payload, paxfulApi);
+    const { buyer_name: username, trade_hash: tradeHash } = payload;
+    if (!username || !tradeHash) return console.warn('Invalid payload for trade.started');
+    await sendMessage(username, tradeHash, 'Trade has started. Welcome!');
+  },
+
+
 
   'trade.chat_message_received': async (payload, _, paxfulApi, ctx) => {
     console.log('New trade chat message received webhook:', payload);
@@ -616,26 +704,46 @@ const handlers = {
       sent_by_moderator: payload.sent_by_moderator
     }];
 
+    
     await saveChatMessageToFirestore(payload, messages);
    // await TrainsaveChatMessageToFirestore(payload,messages);
 
-  },
-
-  'trade.paid': async (payload, tradesHandler) => {
-    console.log('Handler trade.paid called with payload:', payload);
-    try {
-      const tradeHash = payload.trade_hash;
-      if (await tradesHandler.isFiatPaymentReceivedInFullAmount(tradeHash)) {
-        //await tradesHandler.markCompleted(tradeHash);
-        console.log(`Trade ${tradeHash} marked as completed.`);
-        // Uncomment if you need to save the trade details on payment
-        // await saveTradeToFirestore(payload, 'trades');
-      }
-    } catch (error) {
-      console.error('Error in trade.paid handler:', error);
+    const { trade_hash: tradeHash, buyer_name: username, text } = payload;
+    if (/\b\d{10}\b/.test(text)) {
+      await sendMessage(username, tradeHash, 'Account number received');
+    } else if (/\bBank\b/i.test(text)) {
+      await sendMessage(username, tradeHash, 'Bank details received');
     }
   },
+
+  'trade.paid': async (payload) => {
+    console.log('Processing trade.paid webhook:', payload);
+  },
 };
+
+
+
+
+
+// // Main webhook handler
+// const handleWebhook = async (req, res) => {
+//   const { type: webhookType, payload } = req.body;
+
+//   if (!handlers[webhookType]) {
+//     console.warn('Unhandled webhook type:', webhookType);
+//     return res.status(400).send('Unhandled webhook type');
+//   }
+
+//   try {
+//     await handlers[webhookType](payload);
+//     res.status(200).send('Webhook processed');
+//   } catch (error) {
+//     console.error('Error handling webhook:', error);
+//     res.status(500).send('Internal Server Error');
+//   }
+// };
+
+
 
 
 router.post('/paxful/send-message', async (req, res) => {
@@ -654,6 +762,8 @@ router.post('/paxful/send-message', async (req, res) => {
   }
 });
 
+
+
 router.post('/paxful/addstaff', async (req, res) => {
   const { staffId, staffDetails } = req.body;
 
@@ -670,6 +780,7 @@ router.post('/paxful/addstaff', async (req, res) => {
     res.status(500).json({ status: 'error', message: 'Failed to add staff.', error });
   }
 });
+
 
 router.post('/paxful/pay', async (req, res) => {
   const hash = req.body.hash;
@@ -1116,5 +1227,7 @@ router.post('/paxful/binance/rates', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch the price from Binance' });
   }
 });
+
+
 
 module.exports = router;
