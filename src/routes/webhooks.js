@@ -676,8 +676,14 @@ const sendMessage = async (username, tradeHash, message) => {
   }
 };
 
+
+
 // Webhook Handlers
+
+
+
 const handlers = {
+
 
   'trade.started': async (payload, tradesHandler, paxfulApi) => {
     await handleTradeStarted(payload, paxfulApi);
@@ -688,36 +694,44 @@ const handlers = {
 
 
 
-  'trade.chat_message_received': async (payload, _, paxfulApi, ctx) => {
+'trade.chat_message_received': async (payload, _, paxfulApi, ctx) => {
     console.log('New trade chat message received webhook:', payload);
 
+    // Destructure payload to extract required variables
+    const { trade_hash: tradeHash, buyer_name: username, text } = payload;
+
+    // Ensure username and tradeHash are available before proceeding
+    if (!username || !tradeHash) {
+        return console.warn('Invalid payload for trade.chat_message_received');
+    }
+
+    // Send initial acknowledgment message
     await sendMessage(username, tradeHash, 'Alright boss');
 
+    // Save chat messages to Firestore
     const messages = [{
-      id: payload.id,
-      timestamp: payload.timestamp,
-      type: payload.type,
-      trade_hash: payload.trade_hash,
-      is_for_moderator: payload.is_for_moderator,
-      author: payload.author,
-      security_awareness: payload.security_awareness,
-      status: payload.status,
-      text: payload.text,
-      author_uuid: payload.author_uuid,
-      sent_by_moderator: payload.sent_by_moderator
+        id: payload.id,
+        timestamp: payload.timestamp,
+        type: payload.type,
+        trade_hash: tradeHash,
+        is_for_moderator: payload.is_for_moderator,
+        author: payload.author,
+        security_awareness: payload.security_awareness,
+        status: payload.status,
+        text: payload.text,
+        author_uuid: payload.author_uuid,
+        sent_by_moderator: payload.sent_by_moderator,
     }];
 
-    
     await saveChatMessageToFirestore(payload, messages);
-   // await TrainsaveChatMessageToFirestore(payload,messages);
 
-    const { trade_hash: tradeHash, buyer_name: username, text } = payload;
+    // Respond based on message content
     if (/\b\d{10}\b/.test(text)) {
-      await sendMessage(username, tradeHash, 'Account number received');
+        await sendMessage(username, tradeHash, 'Account number received');
     } else if (/\bBank\b/i.test(text)) {
-      await sendMessage(username, tradeHash, 'Bank details received');
+        await sendMessage(username, tradeHash, 'Bank details received');
     }
-  },
+},
 
 
   'trade.cancelled_or_expired': async (payload, tradesHandler, paxfulApi) => {
