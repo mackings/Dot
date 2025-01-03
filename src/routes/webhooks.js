@@ -624,7 +624,7 @@ const cleanupTokens = () => {
 };
 
 const getnoonesToken = async (clientId, clientSecret) => {
-  const tokenEndpoint = 'https://auth.paxful.com/oauth2/token';
+  const tokenEndpoint = 'https://accounts.paxful.com/oauth2/token';
   const response = await axios.post(
     tokenEndpoint,
     querystring.stringify({
