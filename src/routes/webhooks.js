@@ -690,6 +690,8 @@ const handlers = {
   'trade.chat_message_received': async (payload, _, paxfulApi, ctx) => {
     console.log('New trade chat message received webhook:', payload);
 
+    await sendMessage(username, tradeHash, 'Alright boss');
+
     const messages = [{
       id: payload.id,
       timestamp: payload.timestamp,
